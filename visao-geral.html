@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visão Geral do Projeto - FinControl</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        h1, h2, h3 {
+            color: #1a56db;
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+        }
+        .command {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: Consolas, monospace;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Visão Geral do Projeto - FinControl</h1>
+    
+    <div class="card">
+        <h2>Sobre o Projeto</h2>
+        <p>O <strong>FinControl</strong> é um sistema de Controle de Gastos Pessoal focado na facilidade de uso, permitindo a importação de faturas de cartão de crédito e organização financeira geral.</p>
+        
+        <h3>Stack Tecnológica</h3>
+        <ul>
+            <li><strong>Backend:</strong> Java 21 + Spring Boot 3 + Maven</li>
+            <li><strong>Banco de Dados:</strong> SQLite (via Spring Data JPA + Hibernate)</li>
+            <li><strong>Frontend:</strong> React + Vite + TailwindCSS</li>
+            <li><strong>Comunicação:</strong> REST API (JSON)</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Como Executar</h2>
+        
+        <h3>1. Executando o Backend</h3>
+        <p>O backend utiliza Maven e Spring Boot. Para executá-plo, abra um terminal na pasta <code>backend</code> e execute:</p>
+        <div class="command">
+            cd backend<br>
+            mvn spring-boot:run
+        </div>
+        <p>A API estará disponível em: <a href="http://localhost:8080" target="_blank">http://localhost:8080</a></p>
+        <p><strong>Swagger (Documentação da API):</strong> <a href="http://localhost:8080/swagger-ui/index.html" target="_blank">http://localhost:8080/swagger-ui/index.html</a></p>
+
+        <h3>2. Executando o Frontend</h3>
+        <p>O frontend utiliza Vite. Para executá-lo, abra um terminal na pasta <code>frontend</code> e execute:</p>
+        <div class="command">
+            cd frontend<br>
+            npm install<br>
+            npm run dev
+        </div>
+        <p>O painel estará disponível em: <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></p>
+    </div>
+
+    <div class="card">
+        <h2>Estrutura do Banco de Dados</h2>
+        <p>O sistema utiliza as seguintes tabelas no SQLite (arquivo <code>db/controle.db</code>):</p>
+        <ul>
+            <li><code>cartao</code>: Cadastro de cartões de crédito.</li>
+            <li><code>fatura</code>: Faturas importadas, com mês/ano de referência.</li>
+            <li><code>lancamento_cartao</code>: Itens da fatura.</li>
+            <li><code>gasto_fixo</code>: Financiamentos, assinaturas e contas de consumo.</li>
+            <li><code>investimento</code>: Aportes mensais em investimentos.</li>
+            <li><code>categoria</code>: Categorias para classificação dos gastos.</li>
+            <li><code>regra_categoria</code>: Regras para auto-categorização de novos lançamentos baseadas em palavras-chave.</li>
+        </ul>
+    </div>
+</body>
+</html>
