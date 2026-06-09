@@ -24,6 +24,12 @@ public class CartaoController {
         return service.save(cartao);
     }
 
+    @PutMapping("/{id}")
+    public Cartao update(@PathVariable Long id, @RequestBody Cartao cartao) {
+        cartao.setId(id);
+        return service.save(cartao);
+    }
+
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         service.delete(id);
