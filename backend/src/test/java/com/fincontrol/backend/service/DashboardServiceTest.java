@@ -10,7 +10,6 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,11 +34,11 @@ public class DashboardServiceTest {
         MockitoAnnotations.openMocks(this);
     }
 
+
     @Test
-    void testGetResumoGastosPorCategoria() {
+    void testGetResumoGastosEParcelas() {
         Fatura f = new Fatura();
         f.setId(1L);
-        f.setMesAno("xxxx-yy");
 
         Categoria c1 = new Categoria();
         c1.setNome("Alimentacao");
@@ -48,11 +47,13 @@ public class DashboardServiceTest {
         l1.setFatura(f);
         l1.setCategoria(c1);
         l1.setValor(new BigDecimal("100.00"));
+        l1.setTotalParcelas(1); // à vista
 
         LancamentoCartao l2 = new LancamentoCartao();
         l2.setFatura(f);
         l2.setCategoria(c1);
         l2.setValor(new BigDecimal("50.00"));
+        l2.setTotalParcelas(3); // parcelado
 
         when(faturaRepository.findAll()).thenReturn(Arrays.asList(f));
         when(lancamentoRepository.findAll()).thenReturn(Arrays.asList(l1, l2));
@@ -61,5 +62,9 @@ public class DashboardServiceTest {
 
         Map<String, BigDecimal> gastosPorCategoria = (Map<String, BigDecimal>) resumo.get("gastosPorCategoria");
         assertEquals(new BigDecimal("150.00"), gastosPorCategoria.get("Alimentacao"));
+        
+        assertEquals(new BigDecimal("50.00"), resumo.get("totalParcelado"));
+        assertEquals(new BigDecimal("100.00"), resumo.get("totalAVista"));
+        assertEquals(new BigDecimal("150.00"), resumo.get("totalCartao"));
     }
 }

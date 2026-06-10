@@ -31,7 +31,9 @@ public class DashboardService {
             faturas = faturas.stream().filter(f -> mesAno.equals(f.getMesAno())).collect(Collectors.toList());
         }
         
-       BigDecimal totalCartao = BigDecimal.ZERO;
+        BigDecimal totalCartao = BigDecimal.ZERO;
+        BigDecimal totalParcelado = BigDecimal.ZERO;
+        BigDecimal totalAVista = BigDecimal.ZERO;
         Map<String, BigDecimal> gastosPorCategoria = new HashMap<>();
 
         for (Fatura f : faturas) {
@@ -42,6 +44,12 @@ public class DashboardService {
             for (LancamentoCartao l : lancs) {
                 String catNome = (l.getCategoria() != null && l.getCategoria().getNome() != null) ? l.getCategoria().getNome() : "Outros";
                 gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(l.getValor()));
+                
+                if (l.getTotalParcelas() != null && l.getTotalParcelas() > 1) {
+                    totalParcelado = totalParcelado.add(l.getValor());
+                } else {
+                    totalAVista = totalAVista.add(l.getValor());
+                }
             }
         }
 
@@ -50,6 +58,8 @@ public class DashboardService {
             .map(Investimento::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         resumo.put("totalCartao", totalCartao);
+        resumo.put("totalParcelado", totalParcelado);
+        resumo.put("totalAVista", totalAVista);
         resumo.put("gastosPorCategoria", gastosPorCategoria);
         resumo.put("totalFixo", totalFixo);
         resumo.put("totalInvestido", totalInvestido);
