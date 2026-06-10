@@ -31,11 +31,18 @@ public class DashboardService {
             faturas = faturas.stream().filter(f -> mesAno.equals(f.getMesAno())).collect(Collectors.toList());
         }
         
-        BigDecimal totalCartao = BigDecimal.ZERO;
+       BigDecimal totalCartao = BigDecimal.ZERO;
+        Map<String, BigDecimal> gastosPorCategoria = new HashMap<>();
+
         for (Fatura f : faturas) {
             List<LancamentoCartao> lancs = lancamentoRepository.findAll().stream()
                 .filter(l -> l.getFatura().getId().equals(f.getId())).collect(Collectors.toList());
             totalCartao = totalCartao.add(lancs.stream().map(LancamentoCartao::getValor).reduce(BigDecimal.ZERO, BigDecimal::add));
+            
+            for (LancamentoCartao l : lancs) {
+                String catNome = (l.getCategoria() != null && l.getCategoria().getNome() != null) ? l.getCategoria().getNome() : "Outros";
+                gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(l.getValor()));
+            }
         }
 
         List<Investimento> investimentos = investimentoRepository.findAll();
@@ -43,6 +50,7 @@ public class DashboardService {
             .map(Investimento::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         resumo.put("totalCartao", totalCartao);
+        resumo.put("gastosPorCategoria", gastosPorCategoria);
         resumo.put("totalFixo", totalFixo);
         resumo.put("totalInvestido", totalInvestido);
         resumo.put("gastosFixos", gastosFixos);
