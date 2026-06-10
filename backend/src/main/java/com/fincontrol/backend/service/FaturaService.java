@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -21,8 +23,26 @@ public class FaturaService {
     private final CartaoRepository cartaoRepository;
     private final RegraCategoriaRepository regraRepository;
 
+    private BigDecimal parseValor(String valorStr) {
+        valorStr = valorStr.replaceAll("[^0-9.,-]", "");
+        int lastComma = valorStr.lastIndexOf(',');
+        int lastDot = valorStr.lastIndexOf('.');
+        if (lastComma > lastDot) {
+            valorStr = valorStr.replace(".", "").replace(",", ".");
+        } else if (lastDot > lastComma) {
+            valorStr = valorStr.replace(",", "");
+        } else if (lastComma != -1) {
+            valorStr = valorStr.replace(",", ".");
+        }
+        try {
+            return new BigDecimal(valorStr);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
     public Fatura importarCsv(Long cartaoId, String mesAno, MultipartFile file) throws Exception {
-        Cartao cartao = cartaoRepository.findById(cartaoId).orElseThrow(() -> new RuntimeException("Cart?o n?o encontrado"));
+        Cartao cartao = cartaoRepository.findById(cartaoId).orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
         
         Fatura fatura = new Fatura();
         fatura.setCartao(cartao);
@@ -32,38 +52,63 @@ public class FaturaService {
         List<RegraCategoria> regras = regraRepository.findAll();
         List<LancamentoCartao> lancamentos = new ArrayList<>();
 
+        Pattern installmentPattern = Pattern.compile("(?i)(.*?)\\s+(\\d{1,2})/(\\d{1,2})$");
+
         try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean firstLine = true;
+            
+            int idxData = 0, idxDesc = 1, idxValor = 2; // defaults
+            
             while ((line = br.readLine()) != null) {
-                if (firstLine) { firstLine = false; continue; } // Pula cabe?alho
+                if (firstLine) { 
+                    firstLine = false; 
+                    String[] headers = line.split("[,;]");
+                    for (int i = 0; i < headers.length; i++) {
+                        String h = headers[i].toLowerCase().trim().replace("\"", "");
+                        if (h.equals("data") || h.equals("date")) idxData = i;
+                        else if (h.contains("descri") || h.contains("title") || h.contains("hist")) idxDesc = i;
+                        else if (h.contains("valor") || h.contains("amount")) idxValor = i;
+                    }
+                    continue; 
+                } 
                 
                 String[] values = line.split("[,;]");
-                if (values.length < 3) continue;
+                if (values.length <= Math.max(idxData, Math.max(idxDesc, idxValor))) continue;
 
                 LancamentoCartao l = new LancamentoCartao();
                 l.setFatura(fatura);
                 
-                // Exemplo simples: Data, Descri??o, Valor
-                String dataStr = values[0].trim();
-                String desc = values[1].trim();
-                String valorStr = values[2].trim().replace("R$", "").replace(".", "").replace(",", ".").trim();
+                String dataStr = values[idxData].replace("\"", "").trim();
+                String descStr = values[idxDesc].replace("\"", "").trim();
+                String valorStr = values[idxValor].replace("\"", "").trim();
                 
                 try {
-                    l.setData(LocalDate.parse(dataStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    if (dataStr.contains("-")) {
+                        l.setData(LocalDate.parse(dataStr));
+                    } else {
+                        l.setData(LocalDate.parse(dataStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    }
                 } catch(Exception e) {
                     l.setData(LocalDate.now()); // fallback
                 }
-                l.setDescricao(desc);
-                try {
-                    l.setValor(new BigDecimal(valorStr));
-                } catch(Exception e) {
-                    l.setValor(BigDecimal.ZERO);
+
+                Matcher matcher = installmentPattern.matcher(descStr);
+                if (matcher.find()) {
+                    l.setDescricao(matcher.group(1).trim());
+                    l.setParcela(Integer.parseInt(matcher.group(2)));
+                    l.setTotalParcelas(Integer.parseInt(matcher.group(3)));
+                } else {
+                    l.setDescricao(descStr);
+                    l.setParcela(1);
+                    l.setTotalParcelas(1);
                 }
+                
+                l.setValor(parseValor(valorStr));
                 
                 // Aplica regras
                 for (RegraCategoria r : regras) {
-                    if (desc.toUpperCase().contains(r.getPalavraChave().toUpperCase())) {
+                    if (l.getDescricao().toUpperCase().contains(r.getPalavraChave().toUpperCase())) {
                         l.setCategoria(r.getCategoria());
                         break;
                     }
@@ -83,5 +128,37 @@ public class FaturaService {
 
     public List<LancamentoCartao> findLancamentosByFaturaId(Long faturaId) {
         return lancamentoRepository.findByFaturaId(faturaId);
+    }
+
+    public Fatura updateFatura(Long id, Fatura faturaUpdate) {
+        Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        fatura.setMesAno(faturaUpdate.getMesAno());
+        fatura.setFechada(faturaUpdate.getFechada());
+        return faturaRepository.save(fatura);
+    }
+
+    public void deleteFatura(Long id) {
+        List<LancamentoCartao> lancamentos = findLancamentosByFaturaId(id);
+        lancamentoRepository.deleteAll(lancamentos);
+        faturaRepository.deleteById(id);
+    }
+
+    public LancamentoCartao updateLancamento(Long id, LancamentoCartao lancamentoUpdate) {
+        LancamentoCartao lancamento = lancamentoRepository.findById(id).orElseThrow(() -> new RuntimeException("Lançamento não encontrado"));
+        lancamento.setDescricao(lancamentoUpdate.getDescricao());
+        lancamento.setValor(lancamentoUpdate.getValor());
+        lancamento.setData(lancamentoUpdate.getData());
+        lancamento.setParcela(lancamentoUpdate.getParcela());
+        lancamento.setTotalParcelas(lancamentoUpdate.getTotalParcelas());
+        if (lancamentoUpdate.getCategoria() != null && lancamentoUpdate.getCategoria().getId() != null) {
+            lancamento.setCategoria(lancamentoUpdate.getCategoria());
+        } else {
+            lancamento.setCategoria(null);
+        }
+        return lancamentoRepository.save(lancamento);
+    }
+
+    public void deleteLancamento(Long id) {
+        lancamentoRepository.deleteById(id);
     }
 }
