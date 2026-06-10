@@ -1,13 +1,13 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CreditCard, CalendarDays, TrendingUp, BookOpen, Wallet } from 'lucide-react';
 import Instrucoes from './pages/Instrucoes';
 import Faturas from './pages/Faturas';
 import GastosFixos from './pages/GastosFixos';
 import Cartoes from './pages/Cartoes';
+import Dashboard from './pages/Dashboard';
 
 // Placeholder Pages
-const Dashboard = () => <div className="p-6"><h2 className="text-2xl font-bold mb-4">Dashboard</h2><p>Resumo financeiro do mês.</p></div>;
 const Investimentos = () => <div className="p-6"><h2 className="text-2xl font-bold mb-4">Investimentos</h2><p>Acompanhamento de aportes mensais.</p></div>;
 
 const SidebarItem = ({ to, icon: Icon, children }) => {
