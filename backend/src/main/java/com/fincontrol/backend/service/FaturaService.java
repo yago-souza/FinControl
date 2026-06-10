@@ -52,18 +52,22 @@ public class FaturaService {
         List<RegraCategoria> regras = regraRepository.findAll();
         List<LancamentoCartao> lancamentos = new ArrayList<>();
 
-        Pattern installmentPattern = Pattern.compile("(?i)(.*?)\\s+(\\d{1,2})/(\\d{1,2})$");
+        Pattern installmentPattern = Pattern.compile("(\\d{2})/(\\d{2})");
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean firstLine = true;
+            String separator = ",";
             
             int idxData = 0, idxDesc = 1, idxValor = 2; // defaults
             
             while ((line = br.readLine()) != null) {
                 if (firstLine) { 
-                    firstLine = false; 
-                    String[] headers = line.split("[,;]");
+                    firstLine = false;
+                    if (line.contains(";")) {
+                        separator = ";";
+                    }
+                    String[] headers = line.split(separator + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
                     for (int i = 0; i < headers.length; i++) {
                         String h = headers[i].toLowerCase().trim().replace("\"", "");
                         if (h.equals("data") || h.equals("date")) idxData = i;
@@ -73,7 +77,7 @@ public class FaturaService {
                     continue; 
                 } 
                 
-                String[] values = line.split("[,;]");
+                String[] values = line.split(separator + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
                 if (values.length <= Math.max(idxData, Math.max(idxDesc, idxValor))) continue;
 
                 LancamentoCartao l = new LancamentoCartao();
@@ -95,9 +99,14 @@ public class FaturaService {
 
                 Matcher matcher = installmentPattern.matcher(descStr);
                 if (matcher.find()) {
-                    l.setDescricao(matcher.group(1).trim());
-                    l.setParcela(Integer.parseInt(matcher.group(2)));
-                    l.setTotalParcelas(Integer.parseInt(matcher.group(3)));
+                    String descWithoutInstallment = descStr.substring(0, matcher.start()) + " " + descStr.substring(matcher.end());
+                    descWithoutInstallment = descWithoutInstallment.replace("-  ", " ").replace(" - ", " ").replaceAll("\\s{2,}", " ").trim();
+                    if (descWithoutInstallment.endsWith("-")) {
+                        descWithoutInstallment = descWithoutInstallment.substring(0, descWithoutInstallment.length() - 1).trim();
+                    }
+                    l.setDescricao(descWithoutInstallment);
+                    l.setParcela(Integer.parseInt(matcher.group(1)));
+                    l.setTotalParcelas(Integer.parseInt(matcher.group(2)));
                 } else {
                     l.setDescricao(descStr);
                     l.setParcela(1);
