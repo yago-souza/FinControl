@@ -83,7 +83,7 @@ echo     echo Write-Host "Baixando JRE..." ^>^> download_jre.ps1 >> release\Inic
 echo     echo Invoke-WebRequest -Uri "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk" -OutFile "jre.zip" ^>^> download_jre.ps1 >> release\Iniciar.bat
 echo     echo Write-Host "Extraindo arquivos..." ^>^> download_jre.ps1 >> release\Iniciar.bat
 echo     echo Expand-Archive -Path "jre.zip" -DestinationPath "jre_temp" ^>^> download_jre.ps1 >> release\Iniciar.bat
-echo     echo $extractedDir = Get-ChildItem -Path "jre_temp" ^^I Select-Object -First 1 ^>^> download_jre.ps1 >> release\Iniciar.bat
+echo     echo $extractedDir = Get-ChildItem -Path "jre_temp" ^^^| Select-Object -First 1 ^>^> download_jre.ps1 >> release\Iniciar.bat
 echo     echo Move-Item -Path $extractedDir.FullName -Destination "jre" ^>^> download_jre.ps1 >> release\Iniciar.bat
 echo     echo Remove-Item -Path "jre.zip" -Force ^>^> download_jre.ps1 >> release\Iniciar.bat
 echo     echo Remove-Item -Path "jre_temp" -Recurse -Force ^>^> download_jre.ps1 >> release\Iniciar.bat
