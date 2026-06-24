@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCartao, Long> {
     List<LancamentoCartao> findByFaturaId(Long faturaId);
+    List<LancamentoCartao> findByFaturaIdIn(List<Long> faturaIds);
 }

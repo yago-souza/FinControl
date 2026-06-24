@@ -59,4 +59,14 @@ public class FaturaController {
         service.deleteLancamento(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{faturaId}/lancamentos")
+    public LancamentoCartao addLancamento(@PathVariable Long faturaId, @RequestBody LancamentoCartao lancamento) {
+        return service.addLancamento(faturaId, lancamento);
+    }
+
+    @PatchMapping("/{id}/marcar-paga")
+    public Fatura marcarComoPaga(@PathVariable Long id, @RequestParam Boolean pago) {
+        return service.marcarComoPaga(id, pago);
+    }
 }

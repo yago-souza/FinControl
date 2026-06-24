@@ -54,7 +54,7 @@ public class FaturaService {
 
         Pattern installmentPattern = Pattern.compile("(\\d{2})/(\\d{2})");
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
             String line;
             boolean firstLine = true;
             String separator = ",";
@@ -116,12 +116,15 @@ public class FaturaService {
                 l.setValor(parseValor(valorStr));
                 
                 // Aplica regras
+                List<Categoria> matchedCategories = new ArrayList<>();
                 for (RegraCategoria r : regras) {
                     if (l.getDescricao().toUpperCase().contains(r.getPalavraChave().toUpperCase())) {
-                        l.setCategoria(r.getCategoria());
-                        break;
+                        if (r.getCategoria() != null && !matchedCategories.contains(r.getCategoria())) {
+                            matchedCategories.add(r.getCategoria());
+                        }
                     }
                 }
+                l.setCategorias(matchedCategories);
                 
                 lancamentos.add(l);
             }
@@ -143,7 +146,20 @@ public class FaturaService {
         Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
         fatura.setMesAno(faturaUpdate.getMesAno());
         fatura.setFechada(faturaUpdate.getFechada());
+        fatura.setPago(faturaUpdate.getPago());
         return faturaRepository.save(fatura);
+    }
+
+    public Fatura marcarComoPaga(Long id, Boolean pago) {
+        Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        fatura.setPago(pago);
+        return faturaRepository.save(fatura);
+    }
+
+    public LancamentoCartao addLancamento(Long faturaId, LancamentoCartao lancamento) {
+        Fatura fatura = faturaRepository.findById(faturaId).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        lancamento.setFatura(fatura);
+        return lancamentoRepository.save(lancamento);
     }
 
     public void deleteFatura(Long id) {
@@ -159,11 +175,8 @@ public class FaturaService {
         lancamento.setData(lancamentoUpdate.getData());
         lancamento.setParcela(lancamentoUpdate.getParcela());
         lancamento.setTotalParcelas(lancamentoUpdate.getTotalParcelas());
-        if (lancamentoUpdate.getCategoria() != null && lancamentoUpdate.getCategoria().getId() != null) {
-            lancamento.setCategoria(lancamentoUpdate.getCategoria());
-        } else {
-            lancamento.setCategoria(null);
-        }
+        // Update list of categories
+        lancamento.setCategorias(lancamentoUpdate.getCategorias());
         return lancamentoRepository.save(lancamento);
     }
 

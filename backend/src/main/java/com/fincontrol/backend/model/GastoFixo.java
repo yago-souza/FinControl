@@ -17,5 +17,6 @@ public class GastoFixo {
     private String tipo; // "ASSINATURA", "CONTA", "FINANCIAMENTO"
     private BigDecimal valor;
     private Integer diaVencimento;
+    private Boolean pago = false;
     private Boolean ativo = true;
 }

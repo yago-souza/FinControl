@@ -10,11 +10,13 @@ import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 public class DashboardServiceTest {
@@ -46,18 +48,18 @@ public class DashboardServiceTest {
 
         LancamentoCartao l1 = new LancamentoCartao();
         l1.setFatura(f);
-        l1.setCategoria(c1);
+        l1.setCategorias(java.util.Arrays.asList(c1));
         l1.setValor(new BigDecimal("100.00"));
         l1.setTotalParcelas(1);
 
         LancamentoCartao l2 = new LancamentoCartao();
         l2.setFatura(f);
-        l2.setCategoria(c1);
+        l2.setCategorias(java.util.Arrays.asList(c1));
         l2.setValor(new BigDecimal("50.00"));
         l2.setTotalParcelas(3);
 
         when(faturaRepository.findAll()).thenReturn(Arrays.asList(f));
-        when(lancamentoRepository.findAll()).thenReturn(Arrays.asList(l1, l2));
+        when(lancamentoRepository.findByFaturaIdIn(Arrays.asList(1L))).thenReturn(Arrays.asList(l1, l2));
 
         Map<String, Object> resumo = dashboardService.getResumo(null);
 
@@ -95,7 +97,7 @@ public class DashboardServiceTest {
 
         when(gastoFixoRepository.findAll()).thenReturn(Arrays.asList(gf));
         when(faturaRepository.findAll()).thenReturn(Arrays.asList(f));
-        when(lancamentoRepository.findAll()).thenReturn(Arrays.asList(l1));
+        when(lancamentoRepository.findByFaturaIdIn(Arrays.asList(1L))).thenReturn(Arrays.asList(l1));
         when(investimentoRepository.findAll()).thenReturn(Arrays.asList(inv));
 
         Map<String, Object> resumo = dashboardService.getResumo(null);

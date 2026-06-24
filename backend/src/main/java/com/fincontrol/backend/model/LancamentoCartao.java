@@ -24,7 +24,11 @@ public class LancamentoCartao {
     private Integer parcela; // 1 para a vista, ou numero da parcela
     private Integer totalParcelas; // total de parcelas
     
-    @ManyToOne
-    @JoinColumn(name = "categoria_id")
-    private Categoria categoria;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "lancamento_categoria",
+        joinColumns = @JoinColumn(name = "lancamento_id"),
+        inverseJoinColumns = @JoinColumn(name = "categoria_id")
+    )
+    private java.util.List<Categoria> categorias = new java.util.ArrayList<>();
 }
