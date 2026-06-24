@@ -73,8 +73,8 @@ echo set "JAVA_EXEC=%%JRE_DIR%%\bin\java.exe" >> release\Iniciar.bat
 echo. >> release\Iniciar.bat
 echo if not exist "%%JAVA_EXEC%%" ( >> release\Iniciar.bat
 echo     echo [2/3] Java nao encontrado localmente. >> release\Iniciar.bat
-echo     echo Baixando versao portatil do Java (JRE 21) para Windows... >> release\Iniciar.bat
-echo     echo (Isso e feito apenas na primeira execucao e pode levar alguns segundos)... >> release\Iniciar.bat
+echo     echo Baixando versao portatil do Java JRE 21 para Windows... >> release\Iniciar.bat
+echo     echo Primeira execucao - baixando e instalando o Java... >> release\Iniciar.bat
 echo. >> release\Iniciar.bat
 echo     :: Criar script powershell temporario >> release\Iniciar.bat
 echo     echo $ProgressPreference = 'SilentlyContinue' ^> download_jre.ps1 >> release\Iniciar.bat
