@@ -20,3 +20,7 @@ logs/
 
 # Temporary fix scripts
 fix*.js
+
+# SQLite Database
+db/controle.db
+
