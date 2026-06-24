@@ -14,4 +14,8 @@ public class Categoria {
     
     private String nome;
     private String cor;
+
+    @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("categoria")
+    private java.util.List<RegraCategoria> regras = new java.util.ArrayList<>();
 }

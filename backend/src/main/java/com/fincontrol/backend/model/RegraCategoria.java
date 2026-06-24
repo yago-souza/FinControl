@@ -16,5 +16,6 @@ public class RegraCategoria {
     
     @ManyToOne
     @JoinColumn(name = "categoria_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("regras")
     private Categoria categoria;
 }
