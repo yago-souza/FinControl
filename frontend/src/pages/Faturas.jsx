@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Upload, Eye, CreditCard, Trash2, Edit2 } from 'lucide-react';
+import { Upload, Eye, CreditCard, Trash2, Edit2, CheckSquare, Square, Plus } from 'lucide-react';
 
 const API_URL_FATURAS = 'http://localhost:8080/api/faturas';
 const API_URL_CARTOES = 'http://localhost:8080/api/cartoes';
@@ -8,6 +8,7 @@ const API_URL_CARTOES = 'http://localhost:8080/api/cartoes';
 const Faturas = () => {
   const [faturas, setFaturas] = useState([]);
   const [cartoes, setCartoes] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   
   const [showImportModal, setShowImportModal] = useState(false);
@@ -19,11 +20,15 @@ const Faturas = () => {
 
   // Fatura Edit state
   const [showEditFaturaModal, setShowEditFaturaModal] = useState(false);
-  const [editFaturaData, setEditFaturaData] = useState({ id: '', mesAno: '', fechada: false });
+  const [editFaturaData, setEditFaturaData] = useState({ id: '', mesAno: '', fechada: false, pago: false });
 
   // Lancamento Edit state
   const [showEditLancamentoModal, setShowEditLancamentoModal] = useState(false);
-  const [editLancamentoData, setEditLancamentoData] = useState({ id: '', descricao: '', valor: 0, data: '', parcela: 1, totalParcelas: 1 });
+  const [editLancamentoData, setEditLancamentoData] = useState({ id: '', descricao: '', valor: 0, data: '', parcela: 1, totalParcelas: 1, categoriaIds: [] });
+
+  // Add Lancamento state
+  const [showAddLancamentoModal, setShowAddLancamentoModal] = useState(false);
+  const [addLancamentoData, setAddLancamentoData] = useState({ descricao: '', valor: '', data: '', parcela: 1, totalParcelas: 1, categoriaIds: [] });
 
   const fetchFaturas = async () => {
     setLoading(true);
@@ -48,9 +53,19 @@ const Faturas = () => {
     }
   };
 
+  const fetchCategorias = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/categorias');
+      setCategorias(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar categorias:", error);
+    }
+  };
+
   useEffect(() => {
     fetchFaturas();
     fetchCartoes();
+    fetchCategorias();
   }, []);
 
   const handleImportSubmit = async (e) => {
@@ -97,7 +112,7 @@ const Faturas = () => {
   };
 
   const openEditFatura = (fatura) => {
-    setEditFaturaData({ id: fatura.id, mesAno: fatura.mesAno, fechada: fatura.fechada });
+    setEditFaturaData({ id: fatura.id, mesAno: fatura.mesAno, fechada: fatura.fechada, pago: fatura.pago || false });
     setShowEditFaturaModal(true);
   };
 
@@ -110,6 +125,19 @@ const Faturas = () => {
     } catch (error) {
       console.error("Erro ao editar fatura:", error);
       alert("Erro ao editar fatura.");
+    }
+  };
+
+  const handleTogglePagoFatura = async (fatura) => {
+    try {
+      const novoStatus = !fatura.pago;
+      await axios.patch(`${API_URL_FATURAS}/${fatura.id}/marcar-paga`, null, {
+        params: { pago: novoStatus }
+      });
+      fetchFaturas();
+    } catch (error) {
+      console.error("Erro ao alterar status de pagamento da fatura:", error);
+      alert("Erro ao alterar status de pagamento.");
     }
   };
 
@@ -149,7 +177,8 @@ const Faturas = () => {
       valor: lancamento.valor, 
       data: lancamento.data ? new Date(lancamento.data).toISOString().split('T')[0] : '',
       parcela: lancamento.parcela || 1,
-      totalParcelas: lancamento.totalParcelas || 1
+      totalParcelas: lancamento.totalParcelas || 1,
+      categoriaIds: lancamento.categorias ? lancamento.categorias.map(c => c.id) : []
     });
     setShowEditLancamentoModal(true);
   };
@@ -157,12 +186,57 @@ const Faturas = () => {
   const handleEditLancamentoSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`${API_URL_FATURAS}/lancamentos/${editLancamentoData.id}`, editLancamentoData);
+      const payload = {
+        id: editLancamentoData.id,
+        descricao: editLancamentoData.descricao,
+        valor: parseFloat(editLancamentoData.valor),
+        data: editLancamentoData.data,
+        parcela: parseInt(editLancamentoData.parcela),
+        totalParcelas: parseInt(editLancamentoData.totalParcelas),
+        categorias: editLancamentoData.categoriaIds.map(id => ({ id: parseInt(id) }))
+      };
+      await axios.put(`${API_URL_FATURAS}/lancamentos/${editLancamentoData.id}`, payload);
       setShowEditLancamentoModal(false);
       fetchLancamentos(selectedFatura.id);
     } catch (error) {
       console.error("Erro ao editar lancamento:", error);
       alert("Erro ao editar lançamento.");
+    }
+  };
+
+  const openAddLancamento = () => {
+    let defaultData = new Date().toISOString().split('T')[0];
+    if (selectedFatura && selectedFatura.mesAno) {
+      defaultData = `${selectedFatura.mesAno}-01`;
+    }
+    setAddLancamentoData({
+      descricao: '',
+      valor: '',
+      data: defaultData,
+      parcela: 1,
+      totalParcelas: 1,
+      categoriaIds: []
+    });
+    setShowAddLancamentoModal(true);
+  };
+
+  const handleAddLancamentoSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        descricao: addLancamentoData.descricao,
+        valor: parseFloat(addLancamentoData.valor),
+        data: addLancamentoData.data,
+        parcela: parseInt(addLancamentoData.parcela),
+        totalParcelas: parseInt(addLancamentoData.totalParcelas),
+        categorias: addLancamentoData.categoriaIds.map(id => ({ id: parseInt(id) }))
+      };
+      await axios.post(`${API_URL_FATURAS}/${selectedFatura.id}/lancamentos`, payload);
+      setShowAddLancamentoModal(false);
+      fetchLancamentos(selectedFatura.id);
+    } catch (error) {
+      console.error("Erro ao adicionar lancamento:", error);
+      alert("Erro ao adicionar lançamento.");
     }
   };
 
@@ -193,6 +267,7 @@ const Faturas = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cartão</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mês/Ano</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pagamento</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
@@ -209,8 +284,20 @@ const Faturas = () => {
                       {fatura.fechada ? 'Fechada' : 'Aberta'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${fatura.pago ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {fatura.pago ? 'Pago' : 'Pendente'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-3">
+                      <button 
+                        onClick={() => handleTogglePagoFatura(fatura)} 
+                        className={`${fatura.pago ? 'text-green-600 hover:text-green-900' : 'text-gray-400 hover:text-gray-600'} flex items-center`} 
+                        title={fatura.pago ? "Marcar como Pendente" : "Marcar como Pago"}
+                      >
+                        {fatura.pago ? <CheckSquare size={18} /> : <Square size={18} />}
+                      </button>
                       <button onClick={() => openLancamentos(fatura)} className="text-blue-600 hover:text-blue-900 flex items-center gap-1" title="Ver Detalhes">
                         <Eye size={18} />
                       </button>
@@ -310,6 +397,16 @@ const Faturas = () => {
                 />
                 <label htmlFor="fechada" className="text-sm font-medium text-gray-700">Fatura Fechada</label>
               </div>
+              <div className="flex items-center gap-2 mt-2">
+                <input 
+                  type="checkbox" 
+                  id="pago"
+                  checked={editFaturaData.pago} 
+                  onChange={(e) => setEditFaturaData({...editFaturaData, pago: e.target.checked})} 
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded" 
+                />
+                <label htmlFor="pago" className="text-sm font-medium text-gray-700">Fatura Paga</label>
+              </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setShowEditFaturaModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Salvar</button>
@@ -325,7 +422,16 @@ const Faturas = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Lançamentos da Fatura {selectedFatura?.mesAno}</h3>
-              <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700 font-medium">X Fechar</button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => openAddLancamento()}
+                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition text-sm flex items-center gap-1 font-semibold"
+                >
+                  <Plus size={16} />
+                  Adicionar Lançamento
+                </button>
+                <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700 font-medium">X Fechar</button>
+              </div>
             </div>
             
             <div className="flex-1 overflow-auto">
@@ -349,9 +455,19 @@ const Faturas = () => {
                         {l.totalParcelas > 1 ? `${l.parcela}/${l.totalParcelas}` : '-'}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm">
-                        {l.categoria ? (
-                          <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs">{l.categoria.nome}</span>
-                        ) : '-'}
+                        <div className="flex flex-wrap gap-1">
+                          {l.categorias && l.categorias.length > 0 ? (
+                            l.categorias.map(cat => (
+                              <span 
+                                key={cat.id} 
+                                className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                                style={{ backgroundColor: (cat.cor || '#6b7280') + '15', color: cat.cor || '#6b7280', borderColor: (cat.cor || '#6b7280') + '40' }}
+                              >
+                                {cat.nome}
+                              </span>
+                            ))
+                          ) : '-'}
+                        </div>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-right font-medium">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(l.valor)}
@@ -427,6 +543,31 @@ const Faturas = () => {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Categorias</label>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-32 overflow-y-auto">
+                  {categorias.map(c => {
+                    const isChecked = editLancamentoData.categoriaIds.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const newIds = e.target.checked 
+                              ? [...editLancamentoData.categoriaIds, c.id]
+                              : editLancamentoData.categoriaIds.filter(id => id !== c.id);
+                            setEditLancamentoData({...editLancamentoData, categoriaIds: newIds});
+                          }}
+                          className="rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                        />
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: c.cor }} />
+                        {c.nome}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Parcela Atual</label>
@@ -454,6 +595,103 @@ const Faturas = () => {
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setShowEditLancamentoModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Adicionar Lançamento */}
+      {showAddLancamentoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Novo Lançamento</h3>
+            <form onSubmit={handleAddLancamentoSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Descrição</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={addLancamentoData.descricao} 
+                  onChange={(e) => setAddLancamentoData({...addLancamentoData, descricao: e.target.value})} 
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Valor (R$)</label>
+                  <input 
+                    required 
+                    type="number" 
+                    step="0.01"
+                    value={addLancamentoData.valor} 
+                    onChange={(e) => setAddLancamentoData({...addLancamentoData, valor: e.target.value})} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Data</label>
+                  <input 
+                    required 
+                    type="date" 
+                    value={addLancamentoData.data} 
+                    onChange={(e) => setAddLancamentoData({...addLancamentoData, data: e.target.value})} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Categorias</label>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-32 overflow-y-auto">
+                  {categorias.map(c => {
+                    const isChecked = addLancamentoData.categoriaIds.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const newIds = e.target.checked 
+                              ? [...addLancamentoData.categoriaIds, c.id]
+                              : addLancamentoData.categoriaIds.filter(id => id !== c.id);
+                            setAddLancamentoData({...addLancamentoData, categoriaIds: newIds});
+                          }}
+                          className="rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                        />
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: c.cor }} />
+                        {c.nome}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Parcela Atual</label>
+                  <input 
+                    required 
+                    type="number" 
+                    min="1"
+                    value={addLancamentoData.parcela} 
+                    onChange={(e) => setAddLancamentoData({...addLancamentoData, parcela: parseInt(e.target.value)})} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Total Parcelas</label>
+                  <input 
+                    required 
+                    type="number" 
+                    min="1"
+                    value={addLancamentoData.totalParcelas} 
+                    onChange={(e) => setAddLancamentoData({...addLancamentoData, totalParcelas: parseInt(e.target.value)})} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={() => setShowAddLancamentoModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Salvar</button>
               </div>
             </form>
           </div>

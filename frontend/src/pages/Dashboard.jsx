@@ -1,17 +1,17 @@
-﻿import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
-import { CreditCard, CalendarDays, TrendingUp, Wallet, AlertCircle } from 'lucide-react';
+} from "recharts";
+import { CreditCard, CalendarDays, TrendingUp, Wallet, AlertCircle } from "lucide-react";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#F4A460', '#DDA0DD'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D", "#F4A460", "#DDA0DD"];
 
 export default function Dashboard() {
   const [resumo, setResumo] = useState(null);
   const [mesAno, setMesAno] = useState(() => {
     const data = new Date();
-    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
     return `${mes}/${data.getFullYear()}`;
   });
 
@@ -22,10 +22,11 @@ export default function Dashboard() {
 
   const fetchResumo = async () => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/dashboard?mesAno=${encodeURIComponent(mesAno)}`);
+      const response = await axios.get(`http://localhost:8080/api/dashboard/resumo?mes=${encodeURIComponent(mesAno)}`);
+      console.log("Response:", response);
       setResumo(response.data);
     } catch (error) {
-      console.error('Erro ao buscar resumo:', error);
+      console.error("Erro ao buscar resumo:", error);
     }
   };
 
@@ -36,8 +37,37 @@ export default function Dashboard() {
     value
   }));
 
+  const getVencimentoStatus = (vencimento) => {
+    if (vencimento.pago) {
+      return { label: "Pago", colorClass: "bg-green-50 text-green-700 border-green-200" };
+    }
+    
+    // Parse mesAno to get year and month of the dashboard (format "MM/YYYY")
+    if (!mesAno) return { label: "Pendente", colorClass: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+    const [mes, ano] = mesAno.split("/").map(Number);
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+    
+    const dashboardPeriod = ano * 100 + mes;
+    const currentPeriod = currentYear * 100 + currentMonth;
+    
+    if (dashboardPeriod < currentPeriod) {
+      return { label: "Atrasado", colorClass: "bg-red-50 text-red-700 border-red-200" };
+    } else if (dashboardPeriod > currentPeriod) {
+      return { label: "Pendente", colorClass: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+    } else {
+      if (currentDay > vencimento.dia) {
+        return { label: "Atrasado", colorClass: "bg-red-50 text-red-700 border-red-200" };
+      } else {
+        return { label: "Pendente", colorClass: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+      }
+    }
+  };
+
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
   };
 
   return (
@@ -135,26 +165,38 @@ export default function Dashboard() {
           <div className="flex-1 overflow-auto">
             {resumo.proximosVencimentos && resumo.proximosVencimentos.length > 0 ? (
               <ul className="space-y-4">
-                {resumo.proximosVencimentos.map((vencimento, idx) => (
-                  <li key={idx} className="flex justify-between items-center border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                    <div>
-                      <p className="font-medium text-gray-800 text-sm">{vencimento.descricao}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${vencimento.tipo === 'FATURA' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {vencimento.tipo === 'FATURA' ? 'Fatura' : 'Gasto Fixo'}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-800">{formatCurrency(vencimento.valor)}</p>
-                      <p className="text-xs text-gray-500">Dia {vencimento.dia}</p>
-                    </div>
-                  </li>
-                ))}
+                {resumo.proximosVencimentos.map((vencimento, idx) => {
+                  const status = getVencimentoStatus(vencimento);
+                  return (
+                    <li key={idx} className="flex justify-between items-center border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">{vencimento.descricao}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${vencimento.tipo === "FATURA" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                            {vencimento.tipo === "FATURA" ? "Fatura" : "Gasto Fixo"}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${status.colorClass}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800">{formatCurrency(vencimento.valor)}</p>
+                        <p className="text-xs text-gray-500">Dia {vencimento.dia}</p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="flex h-full items-center justify-center text-gray-400 text-sm">
                 Nenhum vencimento previsto.
               </div>
             )}
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+            <span className="font-semibold text-gray-700">Total:</span>
+            <span className="font-bold text-red-600 text-lg">{formatCurrency(resumo.totalProximosVencimentos || 0)}</span>
           </div>
         </div>
       </div>

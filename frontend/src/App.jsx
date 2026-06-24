@@ -1,11 +1,12 @@
-﻿import React from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, CalendarDays, TrendingUp, BookOpen, Wallet } from 'lucide-react';
+import { LayoutDashboard, CreditCard, CalendarDays, TrendingUp, BookOpen, Wallet, Tags } from 'lucide-react';
 import Instrucoes from './pages/Instrucoes';
 import Faturas from './pages/Faturas';
 import GastosFixos from './pages/GastosFixos';
 import Cartoes from './pages/Cartoes';
 import Dashboard from './pages/Dashboard';
+import Categorias from './pages/Categorias';
 
 // Placeholder Pages
 const Investimentos = () => <div className="p-6"><h2 className="text-2xl font-bold mb-4">Investimentos</h2><p>Acompanhamento de aportes mensais.</p></div>;
@@ -39,6 +40,7 @@ function Layout() {
           <SidebarItem to="/cartoes" icon={Wallet}>Cartões</SidebarItem>
           <SidebarItem to="/faturas" icon={CreditCard}>Faturas</SidebarItem>
           <SidebarItem to="/gastos-fixos" icon={CalendarDays}>Gastos Fixos</SidebarItem>
+          <SidebarItem to="/categorias" icon={Tags}>Categorias</SidebarItem>
           <SidebarItem to="/investimentos" icon={TrendingUp}>Investimentos</SidebarItem>
           <SidebarItem to="/instrucoes" icon={BookOpen}>Instruções</SidebarItem>
         </nav>
@@ -51,6 +53,7 @@ function Layout() {
           <Route path="/cartoes" element={<Cartoes />} />
           <Route path="/faturas" element={<Faturas />} />
           <Route path="/gastos-fixos" element={<GastosFixos />} />
+          <Route path="/categorias" element={<Categorias />} />
           <Route path="/investimentos" element={<Investimentos />} />
           <Route path="/instrucoes" element={<Instrucoes />} />
         </Routes>

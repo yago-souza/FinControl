@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor
 public class DashboardService {
     private final FaturaRepository faturaRepository;
     private final GastoFixoRepository gastoFixoRepository;
@@ -26,10 +26,21 @@ public class DashboardService {
         List<GastoFixo> gastosFixos = gastoFixoRepository.findAll();
         BigDecimal totalFixo = gastosFixos.stream().filter(GastoFixo::getAtivo)
             .map(GastoFixo::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-        List<Fatura> faturas = faturaRepository.findAll();
-        if (mesAno != null && !mesAno.isEmpty()) {
-            faturas = faturas.stream().filter(f -> mesAno.equals(f.getMesAno())).collect(Collectors.toList());
+
+        // Convert "MM/YYYY" to "YYYY-MM" if needed
+        String queryMesAno = mesAno;
+        if (queryMesAno != null && queryMesAno.contains("/")) {
+            String[] parts = queryMesAno.split("/");
+            if (parts.length == 2) {
+                queryMesAno = parts[1] + "-" + parts[0];
+            }
+        }
+
+        List<Fatura> faturas;
+        if (queryMesAno != null && !queryMesAno.isEmpty()) {
+            faturas = faturaRepository.findByMesAno(queryMesAno);
+        } else {
+            faturas = faturaRepository.findAll();
         }
         
         BigDecimal totalCartao = BigDecimal.ZERO;
@@ -41,38 +52,56 @@ public class DashboardService {
         for (GastoFixo gf : gastosFixos) {
             if (gf.getAtivo() != null && gf.getAtivo()) {
                 Map<String, Object> v = new HashMap<>();
+                v.put("id", gf.getId());
                 v.put("descricao", gf.getNome());
                 v.put("valor", gf.getValor());
                 v.put("dia", gf.getDiaVencimento() != null ? gf.getDiaVencimento() : 1);
                 v.put("tipo", "GASTO_FIXO");
+                v.put("pago", gf.getPago() != null ? gf.getPago() : false);
                 proximosVencimentos.add(v);
             }
         }
+        
+        if (!faturas.isEmpty()) {
+            List<Long> faturaIds = faturas.stream().map(Fatura::getId).collect(Collectors.toList());
+            List<LancamentoCartao> lancamentos = lancamentoRepository.findByFaturaIdIn(faturaIds);
+            Map<Long, List<LancamentoCartao>> lancamentosPorFatura = lancamentos.stream().collect(Collectors.groupingBy(l -> l.getFatura().getId()));
 
-        for (Fatura f : faturas) {
-            List<LancamentoCartao> lancs = lancamentoRepository.findAll().stream()
-                .filter(l -> l.getFatura().getId().equals(f.getId())).collect(Collectors.toList());
-            
-            BigDecimal valorFatura = lancs.stream().map(LancamentoCartao::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
-            totalCartao = totalCartao.add(valorFatura);
-            
-            if (valorFatura.compareTo(BigDecimal.ZERO) > 0 && f.getCartao() != null) {
-                Map<String, Object> v = new HashMap<>();
-                v.put("descricao", "Fatura " + f.getCartao().getNome());
-                v.put("valor", valorFatura);
-                v.put("dia", f.getCartao().getDiaVencimento() != null ? f.getCartao().getDiaVencimento() : 1);
-                v.put("tipo", "FATURA");
-                proximosVencimentos.add(v);
-            }
-            
-            for (LancamentoCartao l : lancs) {
-                String catNome = (l.getCategoria() != null && l.getCategoria().getNome() != null) ? l.getCategoria().getNome() : "Outros";
-                gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(l.getValor()));
+            for (Fatura f : faturas) {
+                List<LancamentoCartao> lancs = lancamentosPorFatura.getOrDefault(f.getId(), new ArrayList<>());
                 
-                if (l.getTotalParcelas() != null && l.getTotalParcelas() > 1) {
-                    totalParcelado = totalParcelado.add(l.getValor());
-                } else {
-                    totalAVista = totalAVista.add(l.getValor());
+                BigDecimal valorFatura = lancs.stream().map(LancamentoCartao::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalCartao = totalCartao.add(valorFatura);
+                
+                if (valorFatura.compareTo(BigDecimal.ZERO) > 0 && f.getCartao() != null) {
+                    Map<String, Object> v = new HashMap<>();
+                    v.put("id", f.getId());
+                    v.put("descricao", "Fatura " + f.getCartao().getNome());
+                    v.put("valor", valorFatura);
+                    v.put("dia", f.getCartao().getDiaVencimento() != null ? f.getCartao().getDiaVencimento() : 1);
+                    v.put("tipo", "FATURA");
+                    v.put("pago", f.getPago() != null ? f.getPago() : false);
+                    proximosVencimentos.add(v);
+                }
+                
+                for (LancamentoCartao l : lancs) {
+                    List<Categoria> cats = l.getCategorias();
+                    if (cats == null || cats.isEmpty()) {
+                        String catNome = "Outros";
+                        gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(l.getValor()));
+                    } else {
+                        BigDecimal valorDividido = l.getValor().divide(BigDecimal.valueOf(cats.size()), 2, java.math.RoundingMode.HALF_UP);
+                        for (Categoria c : cats) {
+                            String catNome = c.getNome() != null ? c.getNome() : "Outros";
+                            gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(valorDividido));
+                        }
+                    }
+                    
+                    if (l.getTotalParcelas() != null && l.getTotalParcelas() > 1) {
+                        totalParcelado = totalParcelado.add(l.getValor());
+                    } else {
+                        totalAVista = totalAVista.add(l.getValor());
+                    }
                 }
             }
         }
@@ -82,6 +111,10 @@ public class DashboardService {
             Integer dia2 = (Integer) m2.get("dia");
             return dia1.compareTo(dia2);
         });
+
+        BigDecimal totalProximosVencimentos = proximosVencimentos.stream()
+            .map(m -> (BigDecimal) m.get("valor"))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<Investimento> investimentos = investimentoRepository.findAll();
         BigDecimal totalInvestido = investimentos.stream()
@@ -96,6 +129,7 @@ public class DashboardService {
         resumo.put("gastosFixos", gastosFixos);
         resumo.put("faturas", faturas);
         resumo.put("proximosVencimentos", proximosVencimentos);
+        resumo.put("totalProximosVencimentos", totalProximosVencimentos);
         
         return resumo;
     }

@@ -17,5 +17,6 @@ public class Fatura {
     private Cartao cartao;
     
     private String mesAno; // e.g., "2025-06"
+    private Boolean pago = false;
     private Boolean fechada = false;
 }

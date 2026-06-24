@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, CheckSquare, Square } from 'lucide-react';
 
 const API_URL = 'http://localhost:8080/api/gastos-fixos';
 
@@ -8,7 +8,7 @@ const GastosFixos = () => {
   const [gastos, setGastos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true });
+  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false });
 
   const fetchGastos = async () => {
     setLoading(true);
@@ -58,11 +58,23 @@ const GastosFixos = () => {
     }
   };
 
+  const handleTogglePagoGasto = async (gasto) => {
+    try {
+      const novoStatus = !gasto.pago;
+      await axios.put(`${API_URL}/${gasto.id}/pagar`, null, {
+        params: { pago: novoStatus }
+      });
+      fetchGastos();
+    } catch (error) {
+      console.error("Erro ao alterar status de pagamento do gasto fixo:", error);
+    }
+  };
+
   const openModal = (gasto = null) => {
     if (gasto) {
-      setFormData(gasto);
+      setFormData({ ...gasto, pago: gasto.pago || false });
     } else {
-      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true });
+      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false });
     }
     setShowModal(true);
   };
@@ -95,6 +107,7 @@ const GastosFixos = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pagamento</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
@@ -112,7 +125,19 @@ const GastosFixos = () => {
                       {gasto.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${gasto.pago ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {gasto.pago ? 'Pago' : 'Pendente'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                      onClick={() => handleTogglePagoGasto(gasto)} 
+                      className={`${gasto.pago ? 'text-green-600 hover:text-green-900' : 'text-gray-400 hover:text-gray-600'} mr-3`} 
+                      title={gasto.pago ? "Marcar como Pendente" : "Marcar como Pago"}
+                    >
+                      {gasto.pago ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
                     <button onClick={() => openModal(gasto)} className="text-blue-600 hover:text-blue-900 mr-3">
                       <Edit2 size={18} />
                     </button>
@@ -157,9 +182,15 @@ const GastosFixos = () => {
                 <label className="block text-sm font-medium text-gray-700">Dia de Vencimento</label>
                 <input required type="number" min="1" max="31" name="diaVencimento" value={formData.diaVencimento} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
-              <div className="flex items-center">
-                <input type="checkbox" name="ativo" checked={formData.ativo} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                <label className="ml-2 block text-sm text-gray-900">Ativo</label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center">
+                  <input type="checkbox" name="ativo" checked={formData.ativo} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                  <label className="ml-2 block text-sm text-gray-900">Ativo</label>
+                </div>
+                <div className="flex items-center">
+                  <input type="checkbox" name="pago" checked={formData.pago} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                  <label className="ml-2 block text-sm text-gray-900">Pago</label>
+                </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
