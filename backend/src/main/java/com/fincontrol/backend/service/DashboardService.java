@@ -19,6 +19,8 @@ public class DashboardService {
     private final GastoFixoRepository gastoFixoRepository;
     private final LancamentoCartaoRepository lancamentoRepository;
     private final InvestimentoRepository investimentoRepository;
+    private final DividaRecebivelRepository dividaRecebivelRepository;
+    private final CategoriaRepository categoriaRepository;
 
     public Map<String, Object> getResumo(String mesAno) {
         Map<String, Object> resumo = new HashMap<>();
@@ -106,6 +108,46 @@ public class DashboardService {
             }
         }
 
+        // 1. Fetch and calculate PIX Debts and Receivables
+        int targetYear = java.time.LocalDate.now().getYear();
+        int targetMonth = java.time.LocalDate.now().getMonthValue();
+        if (queryMesAno != null && queryMesAno.matches("\\d{4}-\\d{2}")) {
+            String[] parts = queryMesAno.split("-");
+            targetYear = Integer.parseInt(parts[0]);
+            targetMonth = Integer.parseInt(parts[1]);
+        }
+
+        List<DividaRecebivel> allDividas = dividaRecebivelRepository.findAllByOrderByDataVencimentoAsc();
+        int finalTargetYear = targetYear;
+        int finalTargetMonth = targetMonth;
+        List<DividaRecebivel> dividasNoMes = allDividas.stream()
+            .filter(dr -> dr.getDataVencimento() != null && 
+                          dr.getDataVencimento().getYear() == finalTargetYear && 
+                          dr.getDataVencimento().getMonthValue() == finalTargetMonth)
+            .collect(Collectors.toList());
+
+        BigDecimal totalAPagarMes = BigDecimal.ZERO;
+        BigDecimal totalAReceberMes = BigDecimal.ZERO;
+
+        for (DividaRecebivel dr : dividasNoMes) {
+            BigDecimal valor = dr.getValor() != null ? dr.getValor() : BigDecimal.ZERO;
+            if ("DIVIDA".equals(dr.getTipo())) {
+                totalAPagarMes = totalAPagarMes.add(valor);
+            } else if ("RECEBIVEL".equals(dr.getTipo())) {
+                totalAReceberMes = totalAReceberMes.add(valor);
+            }
+
+            // Include in Proximos Vencimentos
+            Map<String, Object> v = new HashMap<>();
+            v.put("id", dr.getId());
+            v.put("descricao", dr.getDescricao() + " (" + dr.getNomePessoa() + ")");
+            v.put("valor", valor);
+            v.put("dia", dr.getDataVencimento().getDayOfMonth());
+            v.put("tipo", dr.getTipo()); // "DIVIDA" or "RECEBIVEL"
+            v.put("pago", dr.getPago() != null ? dr.getPago() : false);
+            proximosVencimentos.add(v);
+        }
+
         proximosVencimentos.sort((m1, m2) -> {
             Integer dia1 = (Integer) m1.get("dia");
             Integer dia2 = (Integer) m2.get("dia");
@@ -116,9 +158,86 @@ public class DashboardService {
             .map(m -> (BigDecimal) m.get("valor"))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // 2. Metas de Gastos por Categoria
+        List<Categoria> categorias = categoriaRepository.findAll();
+        List<Map<String, Object>> metasCategorias = new ArrayList<>();
+        for (Categoria c : categorias) {
+            if (c.getMetaMensal() != null) {
+                BigDecimal gasto = gastosPorCategoria.getOrDefault(c.getNome(), BigDecimal.ZERO);
+                BigDecimal restante = c.getMetaMensal().subtract(gasto);
+                if (restante.compareTo(BigDecimal.ZERO) < 0) {
+                    restante = BigDecimal.ZERO;
+                }
+                double percentual = 0.0;
+                if (c.getMetaMensal().compareTo(BigDecimal.ZERO) > 0) {
+                    percentual = gasto.multiply(BigDecimal.valueOf(100))
+                        .divide(c.getMetaMensal(), 2, java.math.RoundingMode.HALF_UP)
+                        .doubleValue();
+                }
+                boolean excedeu = gasto.compareTo(c.getMetaMensal()) > 0;
+                boolean proximoLimite = percentual >= 80.0;
+
+                Map<String, Object> metaMap = new HashMap<>();
+                metaMap.put("categoriaId", c.getId());
+                metaMap.put("categoriaNome", c.getNome());
+                metaMap.put("categoriaCor", c.getCor());
+                metaMap.put("metaMensal", c.getMetaMensal());
+                metaMap.put("gastoMes", gasto);
+                metaMap.put("restante", restante);
+                metaMap.put("percentual", percentual);
+                metaMap.put("excedeu", excedeu);
+                metaMap.put("proximoLimite", proximoLimite);
+                metasCategorias.add(metaMap);
+            }
+        }
+
+        // 3. Detalhamento de Investimentos (Tipos e Caixinhas)
         List<Investimento> investimentos = investimentoRepository.findAll();
         BigDecimal totalInvestido = investimentos.stream()
             .map(Investimento::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, BigDecimal> caixinhaMap = new HashMap<>();
+        Map<String, BigDecimal> prazoMap = new HashMap<>();
+        
+        prazoMap.put("CURTO_PRAZO", BigDecimal.ZERO);
+        prazoMap.put("MEDIO_PRAZO", BigDecimal.ZERO);
+        prazoMap.put("LONGO_PRAZO", BigDecimal.ZERO);
+        
+        for (Investimento inv : investimentos) {
+            BigDecimal val = inv.getValor() != null ? inv.getValor() : BigDecimal.ZERO;
+            
+            if (inv.getCaixinha() != null) {
+                String cxNome = inv.getCaixinha().getNome();
+                caixinhaMap.put(cxNome, caixinhaMap.getOrDefault(cxNome, BigDecimal.ZERO).add(val));
+            } else {
+                String cxNome = "Sem Caixinha";
+                caixinhaMap.put(cxNome, caixinhaMap.getOrDefault(cxNome, BigDecimal.ZERO).add(val));
+            }
+            
+            if (inv.getTipoPrazo() != null && !inv.getTipoPrazo().isEmpty()) {
+                String prazoKey = inv.getTipoPrazo();
+                prazoMap.put(prazoKey, prazoMap.getOrDefault(prazoKey, BigDecimal.ZERO).add(val));
+            } else {
+                String prazoKey = "NÃO_ESPECIFICADO";
+                prazoMap.put(prazoKey, prazoMap.getOrDefault(prazoKey, BigDecimal.ZERO).add(val));
+            }
+        }
+        
+        List<Map<String, Object>> investidoPorCaixinha = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : caixinhaMap.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("nome", entry.getKey());
+            m.put("valor", entry.getValue());
+            investidoPorCaixinha.add(m);
+        }
+        
+        List<Map<String, Object>> investidoPorPrazo = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : prazoMap.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("prazo", entry.getKey());
+            m.put("valor", entry.getValue());
+            investidoPorPrazo.add(m);
+        }
 
         resumo.put("totalCartao", totalCartao);
         resumo.put("totalParcelado", totalParcelado);
@@ -130,6 +249,12 @@ public class DashboardService {
         resumo.put("faturas", faturas);
         resumo.put("proximosVencimentos", proximosVencimentos);
         resumo.put("totalProximosVencimentos", totalProximosVencimentos);
+        
+        resumo.put("totalAPagarMes", totalAPagarMes);
+        resumo.put("totalAReceberMes", totalAReceberMes);
+        resumo.put("metasCategorias", metasCategorias);
+        resumo.put("investidoPorCaixinha", investidoPorCaixinha);
+        resumo.put("investidoPorPrazo", investidoPorPrazo);
         
         return resumo;
     }

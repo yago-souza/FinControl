@@ -35,6 +35,7 @@ public class CategoriaController {
         Categoria categoria = repository.findById(id).orElseThrow(() -> new RuntimeException("Categoria não encontrada"));
         categoria.setNome(categoriaUpdate.getNome());
         categoria.setCor(categoriaUpdate.getCor());
+        categoria.setMetaMensal(categoriaUpdate.getMetaMensal());
         
         // Clear and reload rules in place to handle JPA cascade/orphan removal properly
         categoria.getRegras().clear();

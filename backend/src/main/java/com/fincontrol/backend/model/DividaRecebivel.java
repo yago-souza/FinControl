@@ -9,17 +9,16 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Investimento {
+public class DividaRecebivel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String tipo; // "RENDA_FIXA", "VARIAVEL"
+    private String tipo; // "DIVIDA" or "RECEBIVEL"
+    private String descricao;
     private BigDecimal valor;
-    private LocalDate data;
-    private String tipoPrazo; // "CURTO_PRAZO", "MEDIO_PRAZO", "LONGO_PRAZO"
-
-    @ManyToOne
-    @JoinColumn(name = "caixinha_id")
-    private Caixinha caixinha;
+    private LocalDate dataVencimento;
+    private String nomePessoa; // Credor or Devedor
+    private Boolean pago = false;
+    private LocalDate dataQuitacao;
 }

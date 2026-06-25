@@ -14,6 +14,7 @@ public class Categoria {
     
     private String nome;
     private String cor;
+    private java.math.BigDecimal metaMensal;
 
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL, orphanRemoval = true)
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties("categoria")
