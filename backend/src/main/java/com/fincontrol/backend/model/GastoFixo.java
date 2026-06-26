@@ -20,7 +20,11 @@ public class GastoFixo {
     private Boolean pago = false;
     private Boolean ativo = true;
 
-    @ManyToOne
-    @JoinColumn(name = "categoria_id")
-    private Categoria categoria;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "gasto_fixo_categoria",
+        joinColumns = @JoinColumn(name = "gasto_fixo_id"),
+        inverseJoinColumns = @JoinColumn(name = "categoria_id")
+    )
+    private java.util.List<Categoria> categorias = new java.util.ArrayList<>();
 }

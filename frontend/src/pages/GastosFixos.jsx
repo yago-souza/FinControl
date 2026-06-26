@@ -9,7 +9,7 @@ const GastosFixos = () => {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaId: '' });
+  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaIds: [] });
 
   const fetchGastos = async () => {
     setLoading(true);
@@ -50,7 +50,7 @@ const GastosFixos = () => {
       await axios.post(API_URL, {
         ...formData,
         valor: parseFloat(formData.valor),
-        categoria: formData.categoriaId ? { id: parseInt(formData.categoriaId) } : null
+        categorias: formData.categoriaIds.map(id => ({ id: parseInt(id) }))
       });
       setShowModal(false);
       fetchGastos();
@@ -87,10 +87,10 @@ const GastosFixos = () => {
       setFormData({ 
         ...gasto, 
         pago: gasto.pago || false,
-        categoriaId: gasto.categoria ? gasto.categoria.id : ''
+        categoriaIds: gasto.categorias ? gasto.categorias.map(c => c.id) : []
       });
     } else {
-      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaId: '' });
+      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaIds: [] });
     }
     setShowModal(true);
   };
@@ -120,7 +120,7 @@ const GastosFixos = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categorias</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -134,16 +134,21 @@ const GastosFixos = () => {
                   <td className="px-6 py-4 whitespace-nowrap">{gasto.nome}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{gasto.tipo}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {gasto.categoria ? (
-                      <span 
-                        className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
-                        style={{ backgroundColor: `${gasto.categoria.cor}20`, color: gasto.categoria.cor }}
-                      >
-                        {gasto.categoria.nome}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">Sem categoria</span>
-                    )}
+                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {gasto.categorias && gasto.categorias.length > 0 ? (
+                        gasto.categorias.map((cat) => (
+                          <span 
+                            key={cat.id}
+                            className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full"
+                            style={{ backgroundColor: `${cat.cor}20`, color: cat.cor }}
+                          >
+                            {cat.nome}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-xs">Sem categoria</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(gasto.valor)}
@@ -204,13 +209,29 @@ const GastosFixos = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Categoria</label>
-                <select name="categoriaId" value={formData.categoriaId} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">Selecione uma Categoria (Opcional)</option>
-                  {categorias.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.nome}</option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Categorias</label>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-32 overflow-y-auto">
+                  {categorias.map((cat) => {
+                    const isChecked = formData.categoriaIds.includes(cat.id);
+                    return (
+                      <label key={cat.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const newIds = e.target.checked 
+                              ? [...formData.categoriaIds, cat.id]
+                              : formData.categoriaIds.filter(id => id !== cat.id);
+                            setFormData({...formData, categoriaIds: newIds});
+                          }}
+                          className="rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                        />
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: cat.cor }} />
+                        {cat.nome}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Valor (R$)</label>

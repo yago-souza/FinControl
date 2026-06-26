@@ -53,10 +53,18 @@ public class DashboardService {
 
         for (GastoFixo gf : gastosFixos) {
             if (gf.getAtivo() != null && gf.getAtivo()) {
-                Categoria c = gf.getCategoria();
-                String catNome = (c != null && c.getNome() != null) ? c.getNome() : "Outros";
+                List<Categoria> cats = gf.getCategorias();
                 BigDecimal valor = gf.getValor() != null ? gf.getValor() : BigDecimal.ZERO;
-                gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(valor));
+                if (cats == null || cats.isEmpty()) {
+                    String catNome = "Outros";
+                    gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(valor));
+                } else {
+                    BigDecimal valorDividido = valor.divide(BigDecimal.valueOf(cats.size()), 2, java.math.RoundingMode.HALF_UP);
+                    for (Categoria c : cats) {
+                        String catNome = c.getNome() != null ? c.getNome() : "Outros";
+                        gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(valorDividido));
+                    }
+                }
 
                 Map<String, Object> v = new HashMap<>();
                 v.put("id", gf.getId());
