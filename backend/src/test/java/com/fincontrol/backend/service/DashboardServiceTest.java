@@ -214,4 +214,33 @@ public class DashboardServiceTest {
         BigDecimal valorMedio = porPrazo.stream().filter(m -> "MEDIO_PRAZO".equals(m.get("prazo"))).map(m -> (BigDecimal) m.get("valor")).findFirst().orElse(BigDecimal.ZERO);
         assertEquals(new BigDecimal("1000.00"), valorMedio);
     }
+
+    @Test
+    void testResumoGastoFixoComCategoria() {
+        Categoria cat1 = new Categoria();
+        cat1.setId(1L);
+        cat1.setNome("Lazer");
+        cat1.setCor("blue");
+        cat1.setMetaMensal(new BigDecimal("500.00"));
+
+        GastoFixo gf = new GastoFixo();
+        gf.setId(1L);
+        gf.setNome("Netflix");
+        gf.setValor(new BigDecimal("50.00"));
+        gf.setAtivo(true);
+        gf.setCategoria(cat1);
+
+        when(gastoFixoRepository.findAll()).thenReturn(Arrays.asList(gf));
+        when(faturaRepository.findAll()).thenReturn(Collections.emptyList());
+        when(categoriaRepository.findAll()).thenReturn(Arrays.asList(cat1));
+
+        Map<String, Object> resumo = dashboardService.getResumo(null);
+
+        Map<String, BigDecimal> gastosPorCategoria = (Map<String, BigDecimal>) resumo.get("gastosPorCategoria");
+        assertEquals(new BigDecimal("50.00"), gastosPorCategoria.get("Lazer"));
+
+        List<Map<String, Object>> metas = (List<Map<String, Object>>) resumo.get("metasCategorias");
+        assertEquals(1, metas.size());
+        assertEquals(new BigDecimal("50.00"), metas.get(0).get("gastoMes"));
+    }
 }

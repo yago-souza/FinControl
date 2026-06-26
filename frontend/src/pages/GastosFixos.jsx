@@ -6,9 +6,10 @@ const API_URL = 'http://localhost:8080/api/gastos-fixos';
 
 const GastosFixos = () => {
   const [gastos, setGastos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false });
+  const [formData, setFormData] = useState({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaId: '' });
 
   const fetchGastos = async () => {
     setLoading(true);
@@ -21,8 +22,18 @@ const GastosFixos = () => {
     setLoading(false);
   };
 
+  const fetchCategorias = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/categorias');
+      setCategorias(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar categorias:", error);
+    }
+  };
+
   useEffect(() => {
     fetchGastos();
+    fetchCategorias();
   }, []);
 
   const handleChange = (e) => {
@@ -38,7 +49,8 @@ const GastosFixos = () => {
     try {
       await axios.post(API_URL, {
         ...formData,
-        valor: parseFloat(formData.valor)
+        valor: parseFloat(formData.valor),
+        categoria: formData.categoriaId ? { id: parseInt(formData.categoriaId) } : null
       });
       setShowModal(false);
       fetchGastos();
@@ -72,9 +84,13 @@ const GastosFixos = () => {
 
   const openModal = (gasto = null) => {
     if (gasto) {
-      setFormData({ ...gasto, pago: gasto.pago || false });
+      setFormData({ 
+        ...gasto, 
+        pago: gasto.pago || false,
+        categoriaId: gasto.categoria ? gasto.categoria.id : ''
+      });
     } else {
-      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false });
+      setFormData({ id: null, nome: '', tipo: 'CONTA', valor: '', diaVencimento: '', ativo: true, pago: false, categoriaId: '' });
     }
     setShowModal(true);
   };
@@ -104,6 +120,7 @@ const GastosFixos = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -116,6 +133,18 @@ const GastosFixos = () => {
                 <tr key={gasto.id}>
                   <td className="px-6 py-4 whitespace-nowrap">{gasto.nome}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{gasto.tipo}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {gasto.categoria ? (
+                      <span 
+                        className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
+                        style={{ backgroundColor: `${gasto.categoria.cor}20`, color: gasto.categoria.cor }}
+                      >
+                        {gasto.categoria.nome}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">Sem categoria</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(gasto.valor)}
                   </td>
@@ -149,7 +178,7 @@ const GastosFixos = () => {
               ))}
               {gastos.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">Nenhum gasto fixo cadastrado.</td>
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">Nenhum gasto fixo cadastrado.</td>
                 </tr>
               )}
             </tbody>
@@ -172,6 +201,15 @@ const GastosFixos = () => {
                   <option value="CONTA">Conta</option>
                   <option value="ASSINATURA">Assinatura</option>
                   <option value="FINANCIAMENTO">Financiamento</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Categoria</label>
+                <select name="categoriaId" value={formData.categoriaId} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Selecione uma Categoria (Opcional)</option>
+                  {categorias.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                  ))}
                 </select>
               </div>
               <div>

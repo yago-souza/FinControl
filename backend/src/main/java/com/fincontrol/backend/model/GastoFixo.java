@@ -19,4 +19,8 @@ public class GastoFixo {
     private Integer diaVencimento;
     private Boolean pago = false;
     private Boolean ativo = true;
+
+    @ManyToOne
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
 }

@@ -30,6 +30,21 @@ export default function Dashboard() {
     }
   };
 
+  const generateMonthOptions = () => {
+    const options = [];
+    const today = new Date();
+    for (let i = -12; i <= 6; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const mesVal = String(d.getMonth() + 1).padStart(2, "0");
+      const anoVal = d.getFullYear();
+      const value = `${mesVal}/${anoVal}`;
+      const mesNome = d.toLocaleString("pt-BR", { month: "long" });
+      const label = `${mesNome.charAt(0).toUpperCase() + mesNome.slice(1)} de ${anoVal}`;
+      options.push({ value, label });
+    }
+    return options;
+  };
+
   if (!resumo) return <div className="p-6">Carregando dashboard...</div>;
 
   const dadosGraficoCategoria = Object.entries(resumo.gastosPorCategoria || {}).map(([name, value]) => ({
@@ -76,13 +91,17 @@ export default function Dashboard() {
         <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-600">Mês/Ano:</label>
-          <input 
-            type="text" 
+          <select 
             value={mesAno} 
             onChange={(e) => setMesAno(e.target.value)} 
-            placeholder="MM/YYYY"
-            className="border rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            className="border rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium text-gray-700"
+          >
+            {generateMonthOptions().map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -143,7 +162,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Gastos por Categoria (Cartão)</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Gastos por Categoria (Unificado)</h3>
           {dadosGraficoCategoria.length > 0 ? (
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -152,8 +171,8 @@ export default function Dashboard() {
                     data={dadosGraficoCategoria}
                     cx="50%"
                     cy="50%"
-                    innerRadius={80}
-                    outerRadius={120}
+                    innerRadius={60}
+                    outerRadius={95}
                     fill="#8884d8"
                     paddingAngle={5}
                     dataKey="value"

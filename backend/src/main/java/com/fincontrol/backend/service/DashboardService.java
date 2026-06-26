@@ -53,6 +53,11 @@ public class DashboardService {
 
         for (GastoFixo gf : gastosFixos) {
             if (gf.getAtivo() != null && gf.getAtivo()) {
+                Categoria c = gf.getCategoria();
+                String catNome = (c != null && c.getNome() != null) ? c.getNome() : "Outros";
+                BigDecimal valor = gf.getValor() != null ? gf.getValor() : BigDecimal.ZERO;
+                gastosPorCategoria.put(catNome, gastosPorCategoria.getOrDefault(catNome, BigDecimal.ZERO).add(valor));
+
                 Map<String, Object> v = new HashMap<>();
                 v.put("id", gf.getId());
                 v.put("descricao", gf.getNome());

@@ -41,16 +41,28 @@ public class FaturaService {
         }
     }
 
+    public Fatura getOrCreateFatura(Long cartaoId, String mesAno) {
+        return faturaRepository.findByCartaoIdAndMesAno(cartaoId, mesAno)
+            .orElseGet(() -> {
+                Cartao cartao = cartaoRepository.findById(cartaoId)
+                    .orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
+                Fatura fatura = new Fatura();
+                fatura.setCartao(cartao);
+                fatura.setMesAno(mesAno);
+                fatura.setPago(false);
+                fatura.setFechada(false);
+                return faturaRepository.save(fatura);
+            });
+    }
+
     public Fatura importarCsv(Long cartaoId, String mesAno, MultipartFile file) throws Exception {
         Cartao cartao = cartaoRepository.findById(cartaoId).orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
         
-        Fatura fatura = new Fatura();
-        fatura.setCartao(cartao);
-        fatura.setMesAno(mesAno);
-        fatura = faturaRepository.save(fatura);
+        Fatura fatura = getOrCreateFatura(cartaoId, mesAno);
 
         List<RegraCategoria> regras = regraRepository.findAll();
         List<LancamentoCartao> lancamentos = new ArrayList<>();
+        List<LancamentoCartao> existingLancamentos = lancamentoRepository.findByFaturaId(fatura.getId());
 
         Pattern installmentPattern = Pattern.compile("(\\d{2})/(\\d{2})");
 
@@ -115,6 +127,22 @@ public class FaturaService {
                 
                 l.setValor(parseValor(valorStr));
                 
+                // Prevenção de duplicatas
+                boolean isDuplicate = false;
+                for (LancamentoCartao existing : existingLancamentos) {
+                    if (existing.getData().equals(l.getData()) &&
+                        existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
+                        existing.getValor().compareTo(l.getValor()) == 0 &&
+                        existing.getParcela().equals(l.getParcela()) &&
+                        existing.getTotalParcelas().equals(l.getTotalParcelas())) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                if (isDuplicate) {
+                    continue;
+                }
+                
                 // Aplica regras
                 List<Categoria> matchedCategories = new ArrayList<>();
                 for (RegraCategoria r : regras) {
@@ -131,7 +159,65 @@ public class FaturaService {
         }
 
         lancamentoRepository.saveAll(lancamentos);
+        
+        // Gerar parcelas futuras para os novos lançamentos salvos
+        for (LancamentoCartao l : lancamentos) {
+            gerarParcelasFuturas(l);
+        }
+        
         return fatura;
+    }
+    
+    public void gerarParcelasFuturas(LancamentoCartao l) {
+        if (l.getTotalParcelas() == null || l.getTotalParcelas() <= 1) {
+            return;
+        }
+        
+        int currentParcela = l.getParcela() != null ? l.getParcela() : 1;
+        int totalParcelas = l.getTotalParcelas();
+        if (currentParcela >= totalParcelas) {
+            return;
+        }
+        
+        Fatura baseFatura = l.getFatura();
+        if (baseFatura == null) {
+            return;
+        }
+        
+        java.time.YearMonth baseYearMonth = java.time.YearMonth.parse(baseFatura.getMesAno());
+        
+        for (int p = currentParcela + 1; p <= totalParcelas; p++) {
+            int offset = p - currentParcela;
+            java.time.YearMonth targetYearMonth = baseYearMonth.plusMonths(offset);
+            String targetMesAno = targetYearMonth.toString();
+            
+            Fatura targetFatura = getOrCreateFatura(baseFatura.getCartao().getId(), targetMesAno);
+            
+            // Verifica duplicidade no destino
+            List<LancamentoCartao> existingInTarget = lancamentoRepository.findByFaturaId(targetFatura.getId());
+            boolean exists = false;
+            for (LancamentoCartao existing : existingInTarget) {
+                if (existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
+                    existing.getValor().compareTo(l.getValor()) == 0 &&
+                    existing.getParcela().equals(p) &&
+                    existing.getTotalParcelas().equals(totalParcelas)) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (!exists) {
+                LancamentoCartao futureL = new LancamentoCartao();
+                futureL.setFatura(targetFatura);
+                futureL.setDescricao(l.getDescricao());
+                futureL.setValor(l.getValor());
+                futureL.setData(l.getData() != null ? l.getData().plusMonths(offset) : LocalDate.now().plusMonths(offset));
+                futureL.setParcela(p);
+                futureL.setTotalParcelas(totalParcelas);
+                futureL.setCategorias(new ArrayList<>(l.getCategorias()));
+                lancamentoRepository.save(futureL);
+            }
+        }
     }
     
     public List<Fatura> findAll() {
@@ -159,7 +245,9 @@ public class FaturaService {
     public LancamentoCartao addLancamento(Long faturaId, LancamentoCartao lancamento) {
         Fatura fatura = faturaRepository.findById(faturaId).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
         lancamento.setFatura(fatura);
-        return lancamentoRepository.save(lancamento);
+        LancamentoCartao saved = lancamentoRepository.save(lancamento);
+        gerarParcelasFuturas(saved);
+        return saved;
     }
 
     public void deleteFatura(Long id) {
