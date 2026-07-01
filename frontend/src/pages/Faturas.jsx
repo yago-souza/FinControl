@@ -374,11 +374,11 @@ const Faturas = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Arquivo CSV</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Arquivo de Fatura (CSV, XLS, XLSX)</label>
                 <input 
                   required 
                   type="file" 
-                  accept=".csv"
+                  accept=".csv,.xls,.xlsx"
                   onChange={(e) => setImportData({...importData, file: e.target.files[0]})} 
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl bg-white text-sm" 
                 />

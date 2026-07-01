@@ -158,6 +158,7 @@ public class FaturaServiceTest {
                          "26/06/2026;Compra Nova;20.00\n";
 
         org.springframework.web.multipart.MultipartFile mockFile = mock(org.springframework.web.multipart.MultipartFile.class);
+        when(mockFile.getOriginalFilename()).thenReturn("fatura.csv");
         when(mockFile.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(csvData.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         faturaService.importarCsv(1L, "2026-06", mockFile, user);

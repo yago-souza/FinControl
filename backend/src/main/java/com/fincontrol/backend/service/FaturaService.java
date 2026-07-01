@@ -71,98 +71,45 @@ public class FaturaService {
         List<LancamentoCartao> lancamentos = new ArrayList<>();
         List<LancamentoCartao> existingLancamentos = lancamentoRepository.findByFaturaId(fatura.getId());
 
-        Pattern installmentPattern = Pattern.compile("(\\d{2})/(\\d{2})");
+        List<com.fincontrol.backend.util.FaturaImportParser.ParsedRow> parsedRows = com.fincontrol.backend.util.FaturaImportParser.parse(file);
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-            String line;
-            boolean firstLine = true;
-            String separator = ",";
+        for (com.fincontrol.backend.util.FaturaImportParser.ParsedRow row : parsedRows) {
+            LancamentoCartao l = new LancamentoCartao();
+            l.setFatura(fatura);
+            l.setData(row.getData());
+            l.setDescricao(row.getDescricao());
+            l.setValor(row.getValor());
+            l.setParcela(row.getParcela());
+            l.setTotalParcelas(row.getTotalParcelas());
             
-            int idxData = 0, idxDesc = 1, idxValor = 2; // defaults
-            
-            while ((line = br.readLine()) != null) {
-                if (firstLine) { 
-                    firstLine = false;
-                    if (line.contains(";")) {
-                        separator = ";";
-                    }
-                    String[] headers = line.split(separator + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-                    for (int i = 0; i < headers.length; i++) {
-                        String h = headers[i].toLowerCase().trim().replace("\"", "");
-                        if (h.equals("data") || h.equals("date")) idxData = i;
-                        else if (h.contains("descri") || h.contains("title") || h.contains("hist")) idxDesc = i;
-                        else if (h.contains("valor") || h.contains("amount")) idxValor = i;
-                    }
-                    continue; 
-                } 
-                
-                String[] values = line.split(separator + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-                if (values.length <= Math.max(idxData, Math.max(idxDesc, idxValor))) continue;
-
-                LancamentoCartao l = new LancamentoCartao();
-                l.setFatura(fatura);
-                
-                String dataStr = values[idxData].replace("\"", "").trim();
-                String descStr = values[idxDesc].replace("\"", "").trim();
-                String valorStr = values[idxValor].replace("\"", "").trim();
-                
-                try {
-                    if (dataStr.contains("-")) {
-                        l.setData(LocalDate.parse(dataStr));
-                    } else {
-                        l.setData(LocalDate.parse(dataStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-                    }
-                } catch(Exception e) {
-                    l.setData(LocalDate.now()); // fallback
+            // Prevenção de duplicatas
+            boolean isDuplicate = false;
+            for (LancamentoCartao existing : existingLancamentos) {
+                if (existing.getData().equals(l.getData()) &&
+                    existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
+                    existing.getValor().compareTo(l.getValor()) == 0 &&
+                    existing.getParcela().equals(l.getParcela()) &&
+                    existing.getTotalParcelas().equals(l.getTotalParcelas())) {
+                    isDuplicate = true;
+                    break;
                 }
-
-                Matcher matcher = installmentPattern.matcher(descStr);
-                if (matcher.find()) {
-                    String descWithoutInstallment = descStr.substring(0, matcher.start()) + " " + descStr.substring(matcher.end());
-                    descWithoutInstallment = descWithoutInstallment.replace("-  ", " ").replace(" - ", " ").replaceAll("\\s{2,}", " ").trim();
-                    if (descWithoutInstallment.endsWith("-")) {
-                        descWithoutInstallment = descWithoutInstallment.substring(0, descWithoutInstallment.length() - 1).trim();
-                    }
-                    l.setDescricao(descWithoutInstallment);
-                    l.setParcela(Integer.parseInt(matcher.group(1)));
-                    l.setTotalParcelas(Integer.parseInt(matcher.group(2)));
-                } else {
-                    l.setDescricao(descStr);
-                    l.setParcela(1);
-                    l.setTotalParcelas(1);
-                }
-                
-                l.setValor(parseValor(valorStr));
-                
-                // Prevenção de duplicatas
-                boolean isDuplicate = false;
-                for (LancamentoCartao existing : existingLancamentos) {
-                    if (existing.getData().equals(l.getData()) &&
-                        existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
-                        existing.getValor().compareTo(l.getValor()) == 0 &&
-                        existing.getParcela().equals(l.getParcela()) &&
-                        existing.getTotalParcelas().equals(l.getTotalParcelas())) {
-                        isDuplicate = true;
-                        break;
-                    }
-                }
-                if (isDuplicate) {
-                    continue;
-                }
-                
-                // Aplica regras
-                List<Categoria> matchedCategories = new ArrayList<>();
-                for (RegraCategoria r : regras) {
-                    if (l.getDescricao().toUpperCase().contains(r.getPalavraChave().toUpperCase())) {
-                        if (r.getCategoria() != null && !matchedCategories.contains(r.getCategoria())) {
-                            matchedCategories.add(r.getCategoria());
-                        }
-                    }
-                }
-                l.setCategorias(matchedCategories);
-                
-                lancamentos.add(l);
             }
+            if (isDuplicate) {
+                continue;
+            }
+            
+            // Aplica regras
+            List<Categoria> matchedCategories = new ArrayList<>();
+            for (RegraCategoria r : regras) {
+                if (l.getDescricao().toUpperCase().contains(r.getPalavraChave().toUpperCase())) {
+                    if (r.getCategoria() != null && !matchedCategories.contains(r.getCategoria())) {
+                        matchedCategories.add(r.getCategoria());
+                    }
+                }
+            }
+            l.setCategorias(matchedCategories);
+            
+            lancamentos.add(l);
         }
 
         lancamentoRepository.saveAll(lancamentos);
