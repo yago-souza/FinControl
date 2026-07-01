@@ -21,15 +21,17 @@ class FaturaImportParserTest {
     }
 
     @Test
-    void testParseValor() {
-        // Absolute values
+    void testParseValorPreservesNegative() {
+        // Normal values
         assertEquals(new BigDecimal("1500.60"), FaturaImportParser.parseValor("R$ 1.500,60"));
         assertEquals(new BigDecimal("1500.60"), FaturaImportParser.parseValor("R$ 1,500.60"));
         assertEquals(new BigDecimal("1250.50"), FaturaImportParser.parseValor("1250,50"));
         assertEquals(new BigDecimal("1250.50"), FaturaImportParser.parseValor("1250.50"));
-        assertEquals(new BigDecimal("1250.50"), FaturaImportParser.parseValor("-1250.50"));
-        assertEquals(new BigDecimal("1250.50"), FaturaImportParser.parseValor("1250.50-"));
-        assertEquals(new BigDecimal("50.00"), FaturaImportParser.parseValor("(50,00)"));
+        
+        // Negative values (refunds, statement payments, credits)
+        assertEquals(new BigDecimal("-1250.50"), FaturaImportParser.parseValor("-1250.50"));
+        assertEquals(new BigDecimal("-1250.50"), FaturaImportParser.parseValor("1250.50-"));
+        assertEquals(new BigDecimal("-50.00"), FaturaImportParser.parseValor("(50,00)"));
     }
 
     @Test
@@ -72,11 +74,20 @@ class FaturaImportParserTest {
     }
 
     @Test
-    void testHeuristicsAndParsingCsv() throws Exception {
-        // A CSV with scrambled column order, weird headers, and custom formatting
-        String csvContent = "Preço total;Data da Compra;Estabelecimento;Qtd Parcelas\n" +
-                "R$ 150,00;30/06/2026;Supermercado ABC;1/3\n" +
-                "50.50;2026-07-01;Posto de Gasolina;2/2\n";
+    void testHeuristicsWithMetadataAndExtraColumns() throws Exception {
+        // A complex CSV representing an Itaú export:
+        // - Metadata rows at the top (Agência, Conta, Nome)
+        // - Table headers down on Row 4
+        // - Scrambled columns including Card Number, Cardholder, and Card Type (should be ignored)
+        // - Negative values for statement credits (should preserve negative)
+        // - Total summary footer (should be ignored)
+        String csvContent = "Extrato de Cartao de Credito\n" +
+                "Titular: Joao da Silva; Agencia: 1234; Conta: 56789-0\n" +
+                "\n" +
+                "Numero do Cartao;Data;Lancamento;Tipo de Cartao de Credito;Valor;Titularidade\n" +
+                "1234-XXXX-XXXX-5678;30/06/2026;Supermercado ABC;Gold;150,00;Joao da Silva\n" +
+                "1234-XXXX-XXXX-5678;01/07/2026;PGTO DE FATURA;Gold;-1250,50;Joao da Silva\n" +
+                "Total da Fatura: R$ 1.100,50\n";
 
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -87,22 +98,23 @@ class FaturaImportParserTest {
 
         List<FaturaImportParser.ParsedRow> rows = FaturaImportParser.parse(file);
 
+        // Should ignore top metadata and bottom total rows, importing exactly 2 transaction rows
         assertEquals(2, rows.size());
 
         // Row 1
         FaturaImportParser.ParsedRow r1 = rows.get(0);
         assertEquals(LocalDate.of(2026, 6, 30), r1.getData());
         assertEquals("Supermercado ABC", r1.getDescricao());
-        assertEquals(new BigDecimal("150.00"), r1.getValor());
+        assertEquals(new BigDecimal("150.00"), r1.getValor()); // Positive despesa
         assertEquals(1, r1.getParcela());
-        assertEquals(3, r1.getTotalParcelas());
+        assertEquals(1, r1.getTotalParcelas());
 
         // Row 2
         FaturaImportParser.ParsedRow r2 = rows.get(1);
         assertEquals(LocalDate.of(2026, 7, 1), r2.getData());
-        assertEquals("Posto de Gasolina", r2.getDescricao());
-        assertEquals(new BigDecimal("50.50"), r2.getValor());
-        assertEquals(2, r2.getParcela());
-        assertEquals(2, r2.getTotalParcelas());
+        assertEquals("PGTO DE FATURA", r2.getDescricao());
+        assertEquals(new BigDecimal("-1250.50"), r2.getValor()); // Negative sign preserved for statement credit/payment!
+        assertEquals(1, r2.getParcela());
+        assertEquals(1, r2.getTotalParcelas());
     }
 }

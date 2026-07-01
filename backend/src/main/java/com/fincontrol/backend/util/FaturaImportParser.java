@@ -51,33 +51,51 @@ public class FaturaImportParser {
             return new ArrayList<>();
         }
 
+        // 1. Scan rows to find the actual header row
+        int headerRowIdx = -1;
+        for (int i = 0; i < rawRows.size(); i++) {
+            String[] row = rawRows.get(i);
+            if (row.length < 2) continue; // Needs at least 2 columns to be a table
+            
+            int matches = 0;
+            for (String cell : row) {
+                String h = sanitizeHeader(cell);
+                if (isDateHeader(h) || isDescHeader(h) || isValorHeader(h) || isParcelaHeader(h)) {
+                    matches++;
+                }
+            }
+            if (matches >= 2) {
+                headerRowIdx = i;
+                break;
+            }
+        }
+
         // Determine column mapping
         int idxData = -1;
         int idxDesc = -1;
         int idxValor = -1;
         int idxParcelas = -1;
-
-        // Try mapping via headers in the first row
-        String[] headers = rawRows.get(0);
-        for (int i = 0; i < headers.length; i++) {
-            String h = sanitizeHeader(headers[i]);
-            if (isDateHeader(h)) idxData = i;
-            else if (isDescHeader(h)) idxDesc = i;
-            else if (isValorHeader(h)) idxValor = i;
-            else if (isParcelaHeader(h)) idxParcelas = i;
-        }
-
         int dataStartRow = 1;
 
-        // Fallback heuristics: if mapping failed, analyze rows of data to guess columns
-        if (idxData == -1 || idxDesc == -1 || idxValor == -1) {
-            // Check if the first row is actually data (no headers)
-            boolean firstRowHasHeader = hasHeader(headers);
+        if (headerRowIdx != -1) {
+            String[] headers = rawRows.get(headerRowIdx);
+            for (int i = 0; i < headers.length; i++) {
+                String h = sanitizeHeader(headers[i]);
+                if (isDateHeader(h)) idxData = i;
+                else if (isDescHeader(h)) idxDesc = i;
+                else if (isValorHeader(h)) idxValor = i;
+                else if (isParcelaHeader(h)) idxParcelas = i;
+            }
+            dataStartRow = headerRowIdx + 1;
+        } else {
+            // Fallback heuristics: if no header row found, analyze first row
+            String[] firstRow = rawRows.get(0);
+            boolean firstRowHasHeader = hasHeader(firstRow);
             if (!firstRowHasHeader) {
                 dataStartRow = 0;
             }
 
-            int colsCount = headers.length;
+            int colsCount = firstRow.length;
             int[] scoresData = new int[colsCount];
             int[] scoresValor = new int[colsCount];
             int[] scoresDesc = new int[colsCount];
@@ -95,10 +113,9 @@ public class FaturaImportParser {
                 }
             }
 
-            // Assign indices based on highest scores
-            if (idxData == -1) idxData = getHighestScoreIdx(scoresData, -1, -1);
-            if (idxValor == -1) idxValor = getHighestScoreIdx(scoresValor, idxData, -1);
-            if (idxDesc == -1) idxDesc = getHighestScoreIdx(scoresDesc, idxData, idxValor);
+            idxData = getHighestScoreIdx(scoresData, -1, -1);
+            idxValor = getHighestScoreIdx(scoresValor, idxData, -1);
+            idxDesc = getHighestScoreIdx(scoresDesc, idxData, idxValor);
         }
 
         // Validate that we found at least data, description, and value
@@ -118,8 +135,13 @@ public class FaturaImportParser {
             String valorStr = row[idxValor].trim();
             String parcelaStr = idxParcelas != -1 && row.length > idxParcelas ? row[idxParcelas].trim() : "";
 
-            if (dataStr.isEmpty() && descStr.isEmpty() && valorStr.isEmpty()) {
-                continue; // Skip empty rows
+            if (dataStr.isEmpty() || descStr.isEmpty() || valorStr.isEmpty()) {
+                continue; // Skip empty rows or footers
+            }
+
+            // Skip metadata/footer rows that don't match any date format
+            if (!looksLikeDate(dataStr)) {
+                continue;
             }
 
             LocalDate data = parseDate(dataStr);
@@ -141,10 +163,14 @@ public class FaturaImportParser {
             while ((line = br.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
                 if (separator == null) {
-                    separator = line.contains(";") ? ";" : ",";
+                    if (line.contains(";")) {
+                        separator = ";";
+                    } else if (line.contains(",")) {
+                        separator = ",";
+                    }
                 }
-                // Regex splits taking care of quoted text with commas/semicolons
-                String[] values = line.split(separator + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+                String sep = separator != null ? separator : ",";
+                String[] values = line.split(sep + "(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
                 for (int i = 0; i < values.length; i++) {
                     values[i] = values[i].replace("\"", "").trim();
                 }
@@ -230,19 +256,21 @@ public class FaturaImportParser {
     }
 
     private static boolean isDateHeader(String h) {
-        return h.equals("data") || h.equals("date") || h.contains("vencimento") || h.equals("dia") || h.contains("transacao");
+        return h.equals("data") || h.equals("date") || h.contains("data da") || h.contains("data de") || h.contains("dt.compra") || h.contains("dt.trans") || h.contains("vencimento") || h.equals("dia") || h.contains("transacao");
     }
 
     private static boolean isDescHeader(String h) {
-        return h.contains("desc") || h.contains("title") || h.contains("historico") || h.contains("estabelecimento") || h.contains("detalhe") || h.equals("nome");
+        if (h.contains("cartao") || h.contains("titular") || h.contains("numero")) return false;
+        return h.contains("desc") || h.contains("title") || h.contains("historico") || h.contains("estabelecimento") || h.contains("detalhe") || h.equals("nome") || h.contains("lancamento") || h.equals("itens") || h.equals("item");
     }
 
     private static boolean isValorHeader(String h) {
-        return h.contains("valor") || h.contains("amount") || h.contains("preco") || h.contains("total") || h.contains("debito") || h.contains("credito") || h.contains("lancamento");
+        if (h.contains("cartao") || h.contains("titular") || h.contains("numero") || h.contains("tipo")) return false;
+        return h.contains("valor") || h.contains("amount") || h.contains("preco") || h.contains("total") || h.equals("debito") || h.equals("credito");
     }
 
     private static boolean isParcelaHeader(String h) {
-        return h.contains("parcela") || h.contains("prestacao") || h.contains("vezes") || h.contains("nro") || h.equals("qtd");
+        return h.contains("parcela") || h.contains("prestacao") || h.contains("vezes") || h.contains("nro") || h.equals("qtd") || h.contains("parc");
     }
 
     private static boolean hasHeader(String[] firstRow) {
@@ -297,7 +325,6 @@ public class FaturaImportParser {
         for (String fmt : formats) {
             try {
                 if (fmt.equals("dd/MM")) {
-                    // Handle missing year, append current year
                     DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/" + LocalDate.now().getYear());
                     return LocalDate.parse(clean + "/" + LocalDate.now().getYear(), dtf);
                 }
@@ -305,7 +332,6 @@ public class FaturaImportParser {
             } catch (Exception ignored) {}
         }
 
-        // Last fallback, return current date
         return LocalDate.now();
     }
 
@@ -321,9 +347,12 @@ public class FaturaImportParser {
 
         // Handle negative formats, e.g. 150.00- or (150.00)
         boolean isNegative = false;
-        if (clean.startsWith("-") || clean.endsWith("-")) {
+        if (clean.startsWith("-")) {
             isNegative = true;
-            clean = clean.replace("-", "");
+            clean = clean.substring(1);
+        } else if (clean.endsWith("-")) {
+            isNegative = true;
+            clean = clean.substring(0, clean.length() - 1);
         } else if (clean.startsWith("(") && clean.endsWith(")")) {
             isNegative = true;
             clean = clean.substring(1, clean.length() - 1);
@@ -334,17 +363,14 @@ public class FaturaImportParser {
         int lastDot = clean.lastIndexOf('.');
 
         if (lastComma > lastDot) {
-            // comma is decimal separator (e.g. 1.250,50 or 1250,50)
             clean = clean.replace(".", "").replace(',', '.');
         } else if (lastDot > lastComma) {
-            // dot is decimal separator (e.g. 1,250.50 or 1250.50)
             clean = clean.replace(",", "");
         }
 
         try {
             BigDecimal res = new BigDecimal(clean);
-            // By requirement: use absolute value for transactions
-            return res.abs();
+            return isNegative ? res.negate() : res;
         } catch (Exception e) {
             return BigDecimal.ZERO;
         }
@@ -354,7 +380,6 @@ public class FaturaImportParser {
         Integer p = 1;
         Integer t = 1;
 
-        // 1. First check if we have a separate installment column value
         if (valParcela != null && !valParcela.trim().isEmpty()) {
             String cleanPart = valParcela.trim().toLowerCase();
             Pattern p1 = Pattern.compile("(\\d+)\\s*/\\s*(\\d+)");
@@ -375,17 +400,13 @@ public class FaturaImportParser {
                 return new InstallmentInfo(desc, p, t);
             } else if (m3.find()) {
                 p = Integer.parseInt(m3.group());
-                t = p; // If it's just a single number, assume it could be total or just current, set both as fallback
+                t = p;
                 return new InstallmentInfo(desc, p, t);
             }
         }
 
-        // 2. Fallback: Parse description using regex patterns
-        // Pattern 1: (02/05) or 02/05 or 1/12
         Pattern pat1 = Pattern.compile("\\(?\\b(\\d{1,2})\\s*/\\s*(\\d{1,2})\\b\\)?");
-        // Pattern 2: 2 de 5 or (2 de 5)
         Pattern pat2 = Pattern.compile("\\(?\\b(\\d{1,2})\\s*de\\s*(\\d{1,2})\\b\\)?");
-        // Pattern 3: parc 3 or parc. 3
         Pattern pat3 = Pattern.compile("\\bparc\\.?\\s*(\\d{1,2})\\b");
 
         Matcher mat1 = pat1.matcher(desc);
@@ -407,7 +428,6 @@ public class FaturaImportParser {
         Matcher mat3 = pat3.matcher(desc);
         if (mat3.find()) {
             p = Integer.parseInt(mat3.group(1));
-            // total is unknown, default to 1 or p
             t = p;
             String cleanDesc = cleanDescription(desc, mat3.start(), mat3.end());
             return new InstallmentInfo(cleanDesc, p, t);
@@ -418,7 +438,6 @@ public class FaturaImportParser {
 
     private static String cleanDescription(String desc, int start, int end) {
         String clean = desc.substring(0, start) + " " + desc.substring(end);
-        // Clean double spaces, hyphens, brackets, parenthesis
         return clean.replaceAll("\\(\\s*\\)", "")
                 .replaceAll("\\[\\s*\\]", "")
                 .replace("-  ", " ")
