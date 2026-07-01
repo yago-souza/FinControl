@@ -347,7 +347,18 @@ const Faturas = () => {
       {showImportModal && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Importar Fatura (CSV)</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Importar Fatura (CSV, Excel)</h3>
+            
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5 text-xs text-blue-800 mb-4 space-y-1.5 leading-relaxed">
+              <span className="font-bold text-blue-900 block">Orientação de Formatação:</span>
+              <ul className="list-disc list-inside space-y-1 text-gray-650">
+                <li>Formatos suportados: <strong className="text-blue-900">.csv, .xlsx, .xls</strong>.</li>
+                <li>Mapeamento automático para colunas de <strong className="text-blue-900">Data</strong>, <strong className="text-blue-900">Lançamento/Descrição</strong> e <strong className="text-blue-900">Valor</strong>.</li>
+                <li>Linhas extras (dados de agência, conta, etc.) e colunas secundárias são descartadas automaticamente.</li>
+                <li>Sinais negativos são mantidos para pagamentos e estornos.</li>
+              </ul>
+            </div>
+
             <form onSubmit={handleImportSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Cartão de Crédito</label>
