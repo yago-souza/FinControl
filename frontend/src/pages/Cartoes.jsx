@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 
-const API_URL = 'http://localhost:8080/api/cartoes';
+const API_URL = '/api/cartoes';
 
 const Cartoes = () => {
   const [cartoes, setCartoes] = useState([]);

@@ -19,4 +19,8 @@ public class Fatura {
     private String mesAno; // e.g., "2025-06"
     private Boolean pago = false;
     private Boolean fechada = false;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

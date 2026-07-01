@@ -22,10 +22,10 @@ public class DashboardService {
     private final DividaRecebivelRepository dividaRecebivelRepository;
     private final CategoriaRepository categoriaRepository;
 
-    public Map<String, Object> getResumo(String mesAno) {
+    public Map<String, Object> getResumo(String mesAno, User user) {
         Map<String, Object> resumo = new HashMap<>();
         
-        List<GastoFixo> gastosFixos = gastoFixoRepository.findAll();
+        List<GastoFixo> gastosFixos = gastoFixoRepository.findByUser(user);
         BigDecimal totalFixo = gastosFixos.stream().filter(GastoFixo::getAtivo)
             .map(GastoFixo::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -40,9 +40,9 @@ public class DashboardService {
 
         List<Fatura> faturas;
         if (queryMesAno != null && !queryMesAno.isEmpty()) {
-            faturas = faturaRepository.findByMesAno(queryMesAno);
+            faturas = faturaRepository.findByUserAndMesAno(user, queryMesAno);
         } else {
-            faturas = faturaRepository.findAll();
+            faturas = faturaRepository.findByUser(user);
         }
         
         BigDecimal totalCartao = BigDecimal.ZERO;
@@ -130,7 +130,7 @@ public class DashboardService {
             targetMonth = Integer.parseInt(parts[1]);
         }
 
-        List<DividaRecebivel> allDividas = dividaRecebivelRepository.findAllByOrderByDataVencimentoAsc();
+        List<DividaRecebivel> allDividas = dividaRecebivelRepository.findByUserOrderByDataVencimentoAsc(user);
         int finalTargetYear = targetYear;
         int finalTargetMonth = targetMonth;
         List<DividaRecebivel> dividasNoMes = allDividas.stream()
@@ -172,7 +172,7 @@ public class DashboardService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 2. Metas de Gastos por Categoria
-        List<Categoria> categorias = categoriaRepository.findAll();
+        List<Categoria> categorias = categoriaRepository.findByUser(user);
         List<Map<String, Object>> metasCategorias = new ArrayList<>();
         for (Categoria c : categorias) {
             if (c.getMetaMensal() != null) {
@@ -205,7 +205,7 @@ public class DashboardService {
         }
 
         // 3. Detalhamento de Investimentos (Tipos e Caixinhas)
-        List<Investimento> investimentos = investimentoRepository.findAll();
+        List<Investimento> investimentos = investimentoRepository.findByUser(user);
         BigDecimal totalInvestido = investimentos.stream()
             .map(Investimento::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
 

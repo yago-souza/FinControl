@@ -22,4 +22,8 @@ public class Investimento {
     @ManyToOne
     @JoinColumn(name = "caixinha_id")
     private Caixinha caixinha;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

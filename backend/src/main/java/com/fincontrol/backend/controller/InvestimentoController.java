@@ -1,7 +1,9 @@
 package com.fincontrol.backend.controller;
 
 import com.fincontrol.backend.model.Investimento;
+import com.fincontrol.backend.model.User;
 import com.fincontrol.backend.repository.InvestimentoRepository;
+import com.fincontrol.backend.security.SecurityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,20 +15,25 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class InvestimentoController {
     private final InvestimentoRepository repository;
+    private final SecurityService securityService;
 
     @GetMapping
     public List<Investimento> getAll() {
-        return repository.findAll();
+        User user = securityService.getAuthenticatedUser();
+        return repository.findByUser(user);
     }
 
     @PostMapping
     public Investimento create(@RequestBody Investimento investimento) {
+        User user = securityService.getAuthenticatedUser();
+        investimento.setUser(user);
         return repository.save(investimento);
     }
 
     @PutMapping("/{id}")
     public Investimento update(@PathVariable Long id, @RequestBody Investimento updateData) {
-        Investimento inv = repository.findById(id)
+        User user = securityService.getAuthenticatedUser();
+        Investimento inv = repository.findByIdAndUser(id, user)
             .orElseThrow(() -> new RuntimeException("Investimento não encontrado"));
         inv.setTipo(updateData.getTipo());
         inv.setValor(updateData.getValor());
@@ -38,6 +45,9 @@ public class InvestimentoController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        repository.deleteById(id);
+        User user = securityService.getAuthenticatedUser();
+        Investimento inv = repository.findByIdAndUser(id, user)
+            .orElseThrow(() -> new RuntimeException("Investimento não encontrado"));
+        repository.delete(inv);
     }
 }

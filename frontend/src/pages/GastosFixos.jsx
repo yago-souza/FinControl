@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Trash2, Edit2, CheckSquare, Square } from 'lucide-react';
 
-const API_URL = 'http://localhost:8080/api/gastos-fixos';
+const API_URL = '/api/gastos-fixos';
 
 const GastosFixos = () => {
   const [gastos, setGastos] = useState([]);
@@ -24,7 +24,7 @@ const GastosFixos = () => {
 
   const fetchCategorias = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/categorias');
+      const response = await axios.get('/api/categorias');
       setCategorias(response.data);
     } catch (error) {
       console.error("Erro ao buscar categorias:", error);

@@ -16,7 +16,7 @@ import {
   Check
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:8080/api/dividas-recebiveis';
+const API_URL = '/api/dividas-recebiveis';
 
 export default function DividasRecebiveis() {
   const [transacoes, setTransacoes] = useState([]);

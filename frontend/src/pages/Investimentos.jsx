@@ -26,8 +26,8 @@ import {
   YAxis
 } from 'recharts';
 
-const API_URL_INVESTIMENTOS = 'http://localhost:8080/api/investimentos';
-const API_URL_CAIXINHAS = 'http://localhost:8080/api/caixinhas';
+const API_URL_INVESTIMENTOS = '/api/investimentos';
+const API_URL_CAIXINHAS = '/api/caixinhas';
 
 const COLORS_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#6366f1'];
 

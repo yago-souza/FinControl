@@ -21,4 +21,8 @@ public class DividaRecebivel {
     private String nomePessoa; // Credor or Devedor
     private Boolean pago = false;
     private LocalDate dataQuitacao;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

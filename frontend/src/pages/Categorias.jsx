@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Trash2, Edit2, Tag } from 'lucide-react';
 
-const API_URL = 'http://localhost:8080/api/categorias';
+const API_URL = '/api/categorias';
 
 const PRESET_COLORS = [
   { name: 'Azul', value: '#3b82f6' },

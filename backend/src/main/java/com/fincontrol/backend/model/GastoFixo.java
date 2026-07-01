@@ -27,4 +27,8 @@ public class GastoFixo {
         inverseJoinColumns = @JoinColumn(name = "categoria_id")
     )
     private java.util.List<Categoria> categorias = new java.util.ArrayList<>();
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

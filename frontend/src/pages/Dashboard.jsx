@@ -22,7 +22,7 @@ export default function Dashboard() {
 
   const fetchResumo = async () => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/dashboard/resumo?mes=${encodeURIComponent(mesAno)}`);
+      const response = await axios.get(`/api/dashboard/resumo?mes=${encodeURIComponent(mesAno)}`);
       console.log("Response:", response);
       setResumo(response.data);
     } catch (error) {
