@@ -1,6 +1,7 @@
 package com.fincontrol.backend.service;
 
 import com.fincontrol.backend.model.GastoFixo;
+import com.fincontrol.backend.model.User;
 import com.fincontrol.backend.repository.GastoFixoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +23,12 @@ public class GastoFixoServiceTest {
     @InjectMocks
     private GastoFixoService service;
 
+    private User user;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        user = new User(1L, "teste@teste.com", "senha", "João", "USER");
     }
 
     @Test
@@ -32,17 +36,18 @@ public class GastoFixoServiceTest {
         GastoFixo gasto = new GastoFixo();
         gasto.setId(1L);
         gasto.setPago(false);
+        gasto.setUser(user);
 
-        when(repository.findById(1L)).thenReturn(Optional.of(gasto));
+        when(repository.findByIdAndUser(1L, user)).thenReturn(Optional.of(gasto));
         when(repository.save(any(GastoFixo.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        GastoFixo resultado = service.marcarComoPago(1L, true);
+        GastoFixo resultado = service.marcarComoPago(1L, true, user);
 
         assertNotNull(resultado);
         assertTrue(resultado.getPago());
         verify(repository, times(1)).save(gasto);
 
-        resultado = service.marcarComoPago(1L, false);
+        resultado = service.marcarComoPago(1L, false, user);
 
         assertNotNull(resultado);
         assertFalse(resultado.getPago());

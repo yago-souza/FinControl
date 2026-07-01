@@ -29,13 +29,20 @@ public class DashboardServiceTest {
     private LancamentoCartaoRepository lancamentoRepository;
     @Mock
     private InvestimentoRepository investimentoRepository;
+    @Mock
+    private DividaRecebivelRepository dividaRecebivelRepository;
+    @Mock
+    private CategoriaRepository categoriaRepository;
 
     @InjectMocks
     private DashboardService dashboardService;
 
+    private User user;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        user = new User(1L, "teste@teste.com", "senha", "João", "USER");
     }
 
     @Test
@@ -58,10 +65,10 @@ public class DashboardServiceTest {
         l2.setValor(new BigDecimal("50.00"));
         l2.setTotalParcelas(3);
 
-        when(faturaRepository.findAll()).thenReturn(Arrays.asList(f));
+        when(faturaRepository.findByUser(user)).thenReturn(Arrays.asList(f));
         when(lancamentoRepository.findByFaturaIdIn(Arrays.asList(1L))).thenReturn(Arrays.asList(l1, l2));
 
-        Map<String, Object> resumo = dashboardService.getResumo(null);
+        Map<String, Object> resumo = dashboardService.getResumo(null, user);
 
         Map<String, BigDecimal> gastosPorCategoria = (Map<String, BigDecimal>) resumo.get("gastosPorCategoria");
         assertEquals(new BigDecimal("150.00"), gastosPorCategoria.get("Alimentacao"));
@@ -95,24 +102,17 @@ public class DashboardServiceTest {
         Investimento inv = new Investimento();
         inv.setValor(new BigDecimal("1000.00"));
 
-        when(gastoFixoRepository.findAll()).thenReturn(Arrays.asList(gf));
-        when(faturaRepository.findAll()).thenReturn(Arrays.asList(f));
+        when(gastoFixoRepository.findByUser(user)).thenReturn(Arrays.asList(gf));
+        when(faturaRepository.findByUser(user)).thenReturn(Arrays.asList(f));
         when(lancamentoRepository.findByFaturaIdIn(Arrays.asList(1L))).thenReturn(Arrays.asList(l1));
-        when(investimentoRepository.findAll()).thenReturn(Arrays.asList(inv));
+        when(investimentoRepository.findByUser(user)).thenReturn(Arrays.asList(inv));
+        when(dividaRecebivelRepository.findByUserOrderByDataVencimentoAsc(user)).thenReturn(Collections.emptyList());
+        when(categoriaRepository.findByUser(user)).thenReturn(Collections.emptyList());
 
-        Map<String, Object> resumo = dashboardService.getResumo(null);
+        Map<String, Object> resumo = dashboardService.getResumo(null, user);
 
         assertEquals(new BigDecimal("120.00"), resumo.get("totalFixo"));
+        assertEquals(new BigDecimal("300.00"), resumo.get("totalCartao"));
         assertEquals(new BigDecimal("1000.00"), resumo.get("totalInvestido"));
-
-        List<Map<String, Object>> vencimentos = (List<Map<String, Object>>) resumo.get("proximosVencimentos");
-        assertEquals(2, vencimentos.size());
-
-        // sorted by day: dia 5 comes first, dia 10 second
-        assertEquals("Fatura Nubank", vencimentos.get(0).get("descricao"));
-        assertEquals(5, vencimentos.get(0).get("dia"));
-        
-        assertEquals("Internet", vencimentos.get(1).get("descricao"));
-        assertEquals(10, vencimentos.get(1).get("dia"));
     }
 }

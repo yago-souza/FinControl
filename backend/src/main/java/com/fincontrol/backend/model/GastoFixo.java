@@ -19,4 +19,16 @@ public class GastoFixo {
     private Integer diaVencimento;
     private Boolean pago = false;
     private Boolean ativo = true;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "gasto_fixo_categoria",
+        joinColumns = @JoinColumn(name = "gasto_fixo_id"),
+        inverseJoinColumns = @JoinColumn(name = "categoria_id")
+    )
+    private java.util.List<Categoria> categorias = new java.util.ArrayList<>();
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

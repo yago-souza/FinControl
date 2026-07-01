@@ -24,3 +24,9 @@ fix*.js
 # SQLite Database
 db/controle.db
 
+# Release and Build output
+backend/src/main/resources/static/
+release/
+*.zip
+
+

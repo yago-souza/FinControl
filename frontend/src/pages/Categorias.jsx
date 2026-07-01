@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Trash2, Edit2, Tag } from 'lucide-react';
 
-const API_URL = 'http://localhost:8080/api/categorias';
+const API_URL = '/api/categorias';
 
 const PRESET_COLORS = [
   { name: 'Azul', value: '#3b82f6' },
@@ -19,7 +19,7 @@ const Categorias = () => {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ id: null, nome: '', cor: '#3b82f6', regras: [] });
+  const [formData, setFormData] = useState({ id: null, nome: '', cor: '#3b82f6', metaMensal: '', regras: [] });
   const [newKeyword, setNewKeyword] = useState('');
 
   const fetchCategorias = async () => {
@@ -43,10 +43,11 @@ const Categorias = () => {
         id: categoria.id,
         nome: categoria.nome,
         cor: categoria.cor || '#3b82f6',
+        metaMensal: categoria.metaMensal || '',
         regras: categoria.regras ? [...categoria.regras] : []
       });
     } else {
-      setFormData({ id: null, nome: '', cor: '#3b82f6', regras: [] });
+      setFormData({ id: null, nome: '', cor: '#3b82f6', metaMensal: '', regras: [] });
     }
     setNewKeyword('');
     setShowModal(true);
@@ -133,12 +134,17 @@ const Categorias = () => {
             <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span 
                       className="w-4 h-4 rounded-full inline-block" 
                       style={{ backgroundColor: cat.cor }}
                     />
                     <h3 className="text-lg font-bold text-gray-800">{cat.nome}</h3>
+                    {cat.metaMensal && (
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold">
+                        Meta: R$ {cat.metaMensal}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
@@ -201,6 +207,18 @@ const Categorias = () => {
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })} 
                   className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   placeholder="Ex: Alimentação, Transporte"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Meta Mensal (R$)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.metaMensal} 
+                  onChange={(e) => setFormData({ ...formData, metaMensal: e.target.value ? parseFloat(e.target.value) : '' })} 
+                  className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="Opcional. Ex: 500"
                 />
               </div>
 

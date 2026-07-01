@@ -41,16 +41,35 @@ public class FaturaService {
         }
     }
 
-    public Fatura importarCsv(Long cartaoId, String mesAno, MultipartFile file) throws Exception {
-        Cartao cartao = cartaoRepository.findById(cartaoId).orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
-        
-        Fatura fatura = new Fatura();
-        fatura.setCartao(cartao);
-        fatura.setMesAno(mesAno);
-        fatura = faturaRepository.save(fatura);
+    public Fatura getOrCreateFatura(Long cartaoId, String mesAno, User user) {
+        Cartao cartao = cartaoRepository.findById(cartaoId)
+            .orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
+        if (!cartao.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
+        return faturaRepository.findByCartaoIdAndMesAno(cartaoId, mesAno)
+            .orElseGet(() -> {
+                Fatura fatura = new Fatura();
+                fatura.setCartao(cartao);
+                fatura.setMesAno(mesAno);
+                fatura.setUser(user);
+                fatura.setPago(false);
+                fatura.setFechada(false);
+                return faturaRepository.save(fatura);
+            });
+    }
 
-        List<RegraCategoria> regras = regraRepository.findAll();
+    public Fatura importarCsv(Long cartaoId, String mesAno, MultipartFile file, User user) throws Exception {
+        Cartao cartao = cartaoRepository.findById(cartaoId).orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
+        if (!cartao.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
+        
+        Fatura fatura = getOrCreateFatura(cartaoId, mesAno, user);
+
+        List<RegraCategoria> regras = regraRepository.findByCategoriaUser(user);
         List<LancamentoCartao> lancamentos = new ArrayList<>();
+        List<LancamentoCartao> existingLancamentos = lancamentoRepository.findByFaturaId(fatura.getId());
 
         Pattern installmentPattern = Pattern.compile("(\\d{2})/(\\d{2})");
 
@@ -115,6 +134,22 @@ public class FaturaService {
                 
                 l.setValor(parseValor(valorStr));
                 
+                // Prevenção de duplicatas
+                boolean isDuplicate = false;
+                for (LancamentoCartao existing : existingLancamentos) {
+                    if (existing.getData().equals(l.getData()) &&
+                        existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
+                        existing.getValor().compareTo(l.getValor()) == 0 &&
+                        existing.getParcela().equals(l.getParcela()) &&
+                        existing.getTotalParcelas().equals(l.getTotalParcelas())) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                if (isDuplicate) {
+                    continue;
+                }
+                
                 // Aplica regras
                 List<Categoria> matchedCategories = new ArrayList<>();
                 for (RegraCategoria r : regras) {
@@ -131,56 +166,140 @@ public class FaturaService {
         }
 
         lancamentoRepository.saveAll(lancamentos);
+        
+        // Gerar parcelas futuras para os novos lançamentos salvos
+        for (LancamentoCartao l : lancamentos) {
+            gerarParcelasFuturas(l, user);
+        }
+        
         return fatura;
     }
     
-    public List<Fatura> findAll() {
-        return faturaRepository.findAll();
+    public void gerarParcelasFuturas(LancamentoCartao l, User user) {
+        if (l.getTotalParcelas() == null || l.getTotalParcelas() <= 1) {
+            return;
+        }
+        
+        int currentParcela = l.getParcela() != null ? l.getParcela() : 1;
+        int totalParcelas = l.getTotalParcelas();
+        if (currentParcela >= totalParcelas) {
+            return;
+        }
+        
+        Fatura baseFatura = l.getFatura();
+        if (baseFatura == null) {
+            return;
+        }
+        
+        java.time.YearMonth baseYearMonth = java.time.YearMonth.parse(baseFatura.getMesAno());
+        
+        for (int p = currentParcela + 1; p <= totalParcelas; p++) {
+            int offset = p - currentParcela;
+            java.time.YearMonth targetYearMonth = baseYearMonth.plusMonths(offset);
+            String targetMesAno = targetYearMonth.toString();
+            
+            Fatura targetFatura = getOrCreateFatura(baseFatura.getCartao().getId(), targetMesAno, user);
+            
+            // Verifica duplicidade no destino
+            List<LancamentoCartao> existingInTarget = lancamentoRepository.findByFaturaId(targetFatura.getId());
+            boolean exists = false;
+            for (LancamentoCartao existing : existingInTarget) {
+                if (existing.getDescricao().equalsIgnoreCase(l.getDescricao()) &&
+                    existing.getValor().compareTo(l.getValor()) == 0 &&
+                    existing.getParcela().equals(p) &&
+                    existing.getTotalParcelas().equals(totalParcelas)) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (!exists) {
+                LancamentoCartao futureL = new LancamentoCartao();
+                futureL.setFatura(targetFatura);
+                futureL.setDescricao(l.getDescricao());
+                futureL.setValor(l.getValor());
+                futureL.setData(l.getData() != null ? l.getData().plusMonths(offset) : LocalDate.now().plusMonths(offset));
+                futureL.setParcela(p);
+                futureL.setTotalParcelas(totalParcelas);
+                futureL.setCategorias(new ArrayList<>(l.getCategorias()));
+                lancamentoRepository.save(futureL);
+            }
+        }
+    }
+    
+    public List<Fatura> findAll(User user) {
+        return faturaRepository.findByUser(user);
     }
 
-    public List<LancamentoCartao> findLancamentosByFaturaId(Long faturaId) {
+    public List<LancamentoCartao> findLancamentosByFaturaId(Long faturaId, User user) {
+        Fatura fatura = faturaRepository.findById(faturaId)
+            .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        if (!fatura.getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
         return lancamentoRepository.findByFaturaId(faturaId);
     }
 
-    public Fatura updateFatura(Long id, Fatura faturaUpdate) {
+    public Fatura updateFatura(Long id, Fatura faturaUpdate, User user) {
         Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        if (!fatura.getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
         fatura.setMesAno(faturaUpdate.getMesAno());
         fatura.setFechada(faturaUpdate.getFechada());
         fatura.setPago(faturaUpdate.getPago());
         return faturaRepository.save(fatura);
     }
 
-    public Fatura marcarComoPaga(Long id, Boolean pago) {
+    public Fatura marcarComoPaga(Long id, Boolean pago, User user) {
         Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        if (!fatura.getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
         fatura.setPago(pago);
         return faturaRepository.save(fatura);
     }
 
-    public LancamentoCartao addLancamento(Long faturaId, LancamentoCartao lancamento) {
+    public LancamentoCartao addLancamento(Long faturaId, LancamentoCartao lancamento, User user) {
         Fatura fatura = faturaRepository.findById(faturaId).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        if (!fatura.getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
         lancamento.setFatura(fatura);
-        return lancamentoRepository.save(lancamento);
+        LancamentoCartao saved = lancamentoRepository.save(lancamento);
+        gerarParcelasFuturas(saved, user);
+        return saved;
     }
 
-    public void deleteFatura(Long id) {
-        List<LancamentoCartao> lancamentos = findLancamentosByFaturaId(id);
+    public void deleteFatura(Long id, User user) {
+        Fatura fatura = faturaRepository.findById(id).orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        if (!fatura.getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
+        List<LancamentoCartao> lancamentos = lancamentoRepository.findByFaturaId(id);
         lancamentoRepository.deleteAll(lancamentos);
-        faturaRepository.deleteById(id);
+        faturaRepository.delete(fatura);
     }
 
-    public LancamentoCartao updateLancamento(Long id, LancamentoCartao lancamentoUpdate) {
+    public LancamentoCartao updateLancamento(Long id, LancamentoCartao lancamentoUpdate, User user) {
         LancamentoCartao lancamento = lancamentoRepository.findById(id).orElseThrow(() -> new RuntimeException("Lançamento não encontrado"));
+        if (!lancamento.getFatura().getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
         lancamento.setDescricao(lancamentoUpdate.getDescricao());
         lancamento.setValor(lancamentoUpdate.getValor());
         lancamento.setData(lancamentoUpdate.getData());
         lancamento.setParcela(lancamentoUpdate.getParcela());
         lancamento.setTotalParcelas(lancamentoUpdate.getTotalParcelas());
-        // Update list of categories
         lancamento.setCategorias(lancamentoUpdate.getCategorias());
         return lancamentoRepository.save(lancamento);
     }
 
-    public void deleteLancamento(Long id) {
-        lancamentoRepository.deleteById(id);
+    public void deleteLancamento(Long id, User user) {
+        LancamentoCartao lancamento = lancamentoRepository.findById(id).orElseThrow(() -> new RuntimeException("Lançamento não encontrado"));
+        if (!lancamento.getFatura().getCartao().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Acesso negado");
+        }
+        lancamentoRepository.delete(lancamento);
     }
 }
