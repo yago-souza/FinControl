@@ -38,7 +38,7 @@ export default function Dashboard() {
       const mesVal = String(d.getMonth() + 1).padStart(2, "0");
       const anoVal = d.getFullYear();
       const value = `${mesVal}/${anoVal}`;
-      const mesNome = d.toLocaleString("pt-BR", { month: "long" });
+      const mesNome = d.toLocaleString("pt-BR", { month: "short" }).replace(".", "");
       const label = `${mesNome.charAt(0).toUpperCase() + mesNome.slice(1)} de ${anoVal}`;
       options.push({ value, label });
     }
