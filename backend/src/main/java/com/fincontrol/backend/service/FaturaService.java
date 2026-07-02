@@ -295,6 +295,45 @@ public class FaturaService {
         if (!lancamento.getFatura().getCartao().getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Acesso negado");
         }
+        
+        String desc = lancamento.getDescricao();
+        java.math.BigDecimal valor = lancamento.getValor();
+        Integer parc = lancamento.getParcela();
+        Integer total = lancamento.getTotalParcelas();
+        
         lancamentoRepository.delete(lancamento);
+        
+        if (total != null && total > 1 && parc != null && parc < total) {
+            propagarDelecaoParcelas(lancamento.getFatura(), desc, valor, parc, total, user);
+        }
+    }
+
+    private void propagarDelecaoParcelas(Fatura baseFatura, String desc, java.math.BigDecimal valor, Integer parc, Integer total, User user) {
+        if (baseFatura == null) return;
+        
+        java.time.YearMonth baseYearMonth = java.time.YearMonth.parse(baseFatura.getMesAno());
+        Long cardId = baseFatura.getCartao().getId();
+        
+        for (int p = parc + 1; p <= total; p++) {
+            int offset = p - parc;
+            java.time.YearMonth targetYearMonth = baseYearMonth.plusMonths(offset);
+            String targetMesAno = targetYearMonth.toString();
+            
+            java.util.Optional<Fatura> optFatura = faturaRepository.findByCartaoIdAndMesAno(cardId, targetMesAno);
+            if (optFatura.isPresent()) {
+                Fatura targetFatura = optFatura.get();
+                java.util.List<LancamentoCartao> targetLancamentos = lancamentoRepository.findByFaturaId(targetFatura.getId());
+                for (LancamentoCartao fut : targetLancamentos) {
+                    if (fut.getParcela().equals(p) &&
+                        fut.getTotalParcelas().equals(total) &&
+                        fut.getDescricao().equalsIgnoreCase(desc) &&
+                        fut.getValor().compareTo(valor) == 0) {
+                        
+                        lancamentoRepository.delete(fut);
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
