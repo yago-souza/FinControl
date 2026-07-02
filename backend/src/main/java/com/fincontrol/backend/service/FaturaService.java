@@ -233,13 +233,61 @@ public class FaturaService {
         if (!lancamento.getFatura().getCartao().getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Acesso negado");
         }
+        
+        String oldDesc = lancamento.getDescricao();
+        java.math.BigDecimal oldValor = lancamento.getValor();
+        Integer oldParc = lancamento.getParcela();
+        Integer oldTotal = lancamento.getTotalParcelas();
+        
         lancamento.setDescricao(lancamentoUpdate.getDescricao());
         lancamento.setValor(lancamentoUpdate.getValor());
         lancamento.setData(lancamentoUpdate.getData());
         lancamento.setParcela(lancamentoUpdate.getParcela());
         lancamento.setTotalParcelas(lancamentoUpdate.getTotalParcelas());
         lancamento.setCategorias(lancamentoUpdate.getCategorias());
-        return lancamentoRepository.save(lancamento);
+        LancamentoCartao saved = lancamentoRepository.save(lancamento);
+        
+        if (oldTotal != null && oldTotal > 1 && oldParc != null && oldParc < oldTotal) {
+            propagarAlteracaoParcelas(saved, oldDesc, oldValor, oldParc, oldTotal, user);
+        }
+        
+        return saved;
+    }
+
+    private void propagarAlteracaoParcelas(LancamentoCartao baseLancamento, String oldDesc, java.math.BigDecimal oldValor, Integer oldParc, Integer oldTotal, User user) {
+        Fatura baseFatura = baseLancamento.getFatura();
+        if (baseFatura == null) return;
+        
+        java.time.YearMonth baseYearMonth = java.time.YearMonth.parse(baseFatura.getMesAno());
+        Long cardId = baseFatura.getCartao().getId();
+        
+        for (int p = oldParc + 1; p <= oldTotal; p++) {
+            int offset = p - oldParc;
+            java.time.YearMonth targetYearMonth = baseYearMonth.plusMonths(offset);
+            String targetMesAno = targetYearMonth.toString();
+            
+            java.util.Optional<Fatura> optFatura = faturaRepository.findByCartaoIdAndMesAno(cardId, targetMesAno);
+            if (optFatura.isPresent()) {
+                Fatura targetFatura = optFatura.get();
+                java.util.List<LancamentoCartao> targetLancamentos = lancamentoRepository.findByFaturaId(targetFatura.getId());
+                for (LancamentoCartao fut : targetLancamentos) {
+                    if (fut.getParcela().equals(p) &&
+                        fut.getTotalParcelas().equals(oldTotal) &&
+                        fut.getDescricao().equalsIgnoreCase(oldDesc) &&
+                        fut.getValor().compareTo(oldValor) == 0) {
+                        
+                        fut.setDescricao(baseLancamento.getDescricao());
+                        fut.setValor(baseLancamento.getValor());
+                        if (baseLancamento.getData() != null) {
+                            fut.setData(baseLancamento.getData().plusMonths(offset));
+                        }
+                        fut.setCategorias(new java.util.ArrayList<>(baseLancamento.getCategorias()));
+                        lancamentoRepository.save(fut);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     public void deleteLancamento(Long id, User user) {

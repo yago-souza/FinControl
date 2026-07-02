@@ -100,8 +100,8 @@ const GastosFixos = () => {
 
   const openModal = (gasto = null) => {
     if (gasto) {
-      setFormData({ 
-        ...gasto, 
+      setFormData({
+        ...gasto,
         pago: gasto.pago || false,
         categoriaIds: gasto.categorias ? gasto.categorias.map(c => c.id) : []
       });
@@ -129,7 +129,7 @@ const GastosFixos = () => {
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Gastos Fixos</h1>
           <p className="text-sm text-gray-500 mt-1">Gerencie contas de consumo, assinaturas e despesas mensais recorrentes.</p>
         </div>
-        <button 
+        <button
           onClick={() => openModal()}
           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer text-sm"
         >
@@ -184,31 +184,27 @@ const GastosFixos = () => {
           {gastos.map((gasto) => {
             const isAssinatura = gasto.tipo === 'ASSINATURA';
             const isFinanciamento = gasto.tipo === 'FINANCIAMENTO';
-            
+
             return (
-              <div 
+              <div
                 key={gasto.id}
-                className={`bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden ${
-                  !gasto.ativo ? 'border-gray-200 opacity-60' : gasto.pago ? 'border-emerald-150 hover:border-emerald-250' : 'border-amber-150 hover:border-amber-250'
-                }`}
+                className={`bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden ${!gasto.ativo ? 'border-gray-200 opacity-60' : gasto.pago ? 'border-emerald-150 hover:border-emerald-250' : 'border-amber-150 hover:border-amber-250'
+                  }`}
               >
                 {/* Status Indicator Bar */}
-                <div className={`absolute top-0 left-0 right-0 h-1.5 ${
-                  !gasto.ativo ? 'bg-gray-300' : gasto.pago ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}></div>
+                <div className={`absolute top-0 left-0 right-0 h-1.5 ${!gasto.ativo ? 'bg-gray-300' : gasto.pago ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}></div>
 
                 <div className="space-y-4">
                   {/* Header: Type and Status Badges */}
                   <div className="flex items-center justify-between">
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-md ${
-                      isAssinatura ? 'bg-purple-50 text-purple-650 border border-purple-100' : isFinanciamento ? 'bg-indigo-50 text-indigo-650 border border-indigo-100' : 'bg-blue-50 text-blue-650 border border-blue-100'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-md ${isAssinatura ? 'bg-purple-50 text-purple-650 border border-purple-100' : isFinanciamento ? 'bg-indigo-50 text-indigo-650 border border-indigo-100' : 'bg-blue-50 text-blue-650 border border-blue-100'
+                      }`}>
                       {gasto.tipo}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 border rounded-md ${
-                        gasto.pago ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-705 border-amber-200'
-                      }`}>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 border rounded-md ${gasto.pago ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-705 border-amber-200'
+                        }`}>
                         {gasto.pago ? 'Pago' : 'Pendente'}
                       </span>
                       {!gasto.ativo && (
@@ -225,7 +221,7 @@ const GastosFixos = () => {
                     <div className="flex flex-wrap gap-1 mt-2">
                       {gasto.categorias && gasto.categorias.length > 0 ? (
                         gasto.categorias.map((cat) => (
-                          <span 
+                          <span
                             key={cat.id}
                             className="px-2 py-0.5 text-[10px] font-semibold rounded-full border"
                             style={{ backgroundColor: `${cat.cor}12`, borderColor: `${cat.cor}30`, color: cat.cor }}
@@ -255,23 +251,22 @@ const GastosFixos = () => {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => handleTogglePagoGasto(gasto)} 
-                      className={`p-2 rounded-lg border transition-all cursor-pointer ${
-                        gasto.pago ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                      }`}
+                    <button
+                      onClick={() => handleTogglePagoGasto(gasto)}
+                      className={`p-2 rounded-lg border transition-all cursor-pointer ${gasto.pago ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
                       title={gasto.pago ? "Marcar como Pendente" : "Marcar como Pago"}
                     >
                       {gasto.pago ? <CheckSquare size={16} /> : <Square size={16} />}
                     </button>
-                    <button 
+                    <button
                       onClick={() => openModal(gasto)}
                       className="p-2 bg-gray-50 border border-gray-200 hover:bg-gray-100 text-blue-600 rounded-lg transition-colors cursor-pointer"
                       title="Editar"
                     >
                       <Edit2 size={16} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleDelete(gasto.id)}
                       className="p-2 bg-rose-55 border border-rose-100 hover:bg-rose-100 text-red-655 rounded-lg transition-colors cursor-pointer"
                       title="Excluir"
@@ -294,27 +289,28 @@ const GastosFixos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Nome</label>
-                <input 
-                  required 
-                  type="text" 
-                  name="nome" 
-                  value={formData.nome} 
-                  onChange={handleChange} 
+                <input
+                  required
+                  type="text"
+                  name="nome"
+                  value={formData.nome}
+                  onChange={handleChange}
                   placeholder="Ex: Energia, Aluguel, Netflix"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Tipo</label>
-                <select 
-                  name="tipo" 
-                  value={formData.tipo} 
-                  onChange={handleChange} 
+                <select
+                  name="tipo"
+                  value={formData.tipo}
+                  onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                 >
                   <option value="CONTA">Conta</option>
                   <option value="ASSINATURA">Assinatura</option>
                   <option value="FINANCIAMENTO">Financiamento</option>
+                  <option value="INVESTIMENTO">Investimento</option>
                 </select>
               </div>
               <div>
@@ -324,16 +320,16 @@ const GastosFixos = () => {
                     const isChecked = formData.categoriaIds.includes(cat.id);
                     return (
                       <label key={cat.id} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={isChecked}
                           onChange={(e) => {
-                            const newIds = e.target.checked 
+                            const newIds = e.target.checked
                               ? [...formData.categoriaIds, cat.id]
                               : formData.categoriaIds.filter(id => id !== cat.id);
-                            setFormData({...formData, categoriaIds: newIds});
+                            setFormData({ ...formData, categoriaIds: newIds });
                           }}
-                          className="rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                          className="rounded text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
                         <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: cat.cor }} />
                         {cat.nome}
@@ -344,65 +340,65 @@ const GastosFixos = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Valor (R$)</label>
-                <input 
-                  required 
-                  type="number" 
-                  step="0.01" 
-                  name="valor" 
-                  value={formData.valor} 
-                  onChange={handleChange} 
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  name="valor"
+                  value={formData.valor}
+                  onChange={handleChange}
                   placeholder="Ex: 150.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Dia de Vencimento</label>
-                <input 
-                  required 
-                  type="number" 
-                  min="1" 
-                  max="31" 
-                  name="diaVencimento" 
-                  value={formData.diaVencimento} 
-                  onChange={handleChange} 
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max="31"
+                  name="diaVencimento"
+                  value={formData.diaVencimento}
+                  onChange={handleChange}
                   placeholder="Ex: 15"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                 />
               </div>
               <div className="flex items-center gap-6 pt-2">
                 <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    name="ativo" 
+                  <input
+                    type="checkbox"
+                    name="ativo"
                     id="modal-ativo"
-                    checked={formData.ativo} 
-                    onChange={handleChange} 
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                    checked={formData.ativo}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="modal-ativo" className="ml-2 block text-xs text-gray-700 font-medium cursor-pointer">Ativo</label>
                 </div>
                 <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    name="pago" 
+                  <input
+                    type="checkbox"
+                    name="pago"
                     id="modal-pago"
-                    checked={formData.pago} 
-                    onChange={handleChange} 
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                    checked={formData.pago}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="modal-pago" className="ml-2 block text-xs text-gray-700 font-medium cursor-pointer">Pago</label>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setShowModal(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 text-sm font-medium cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all cursor-pointer"
                 >
                   Salvar
